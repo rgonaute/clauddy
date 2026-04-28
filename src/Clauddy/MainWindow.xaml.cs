@@ -29,7 +29,7 @@ public partial class MainWindow : Window
         SetWindowLong(hwnd, GWL_EXSTYLE, ex | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
     }
 
-    private void GripHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void DragArea_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left) DragMove();
     }

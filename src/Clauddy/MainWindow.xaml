@@ -7,12 +7,12 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ShowInTaskbar="False" Topmost="True"
         SizeToContent="WidthAndHeight" ResizeMode="NoResize">
-    <StackPanel Orientation="Horizontal">
-        <!-- Drag grip on the left edge -->
+    <StackPanel Orientation="Horizontal" Background="Transparent"
+                MouseLeftButtonDown="DragArea_MouseLeftButtonDown" Cursor="SizeAll">
+        <!-- Visible grip strip on the left edge so the widget is findable when no tiles exist -->
         <Border x:Name="GripHandle"
-                Width="12" Height="40" VerticalAlignment="Center"
-                Background="#22ffffff" Margin="0,0,4,0" Cursor="SizeAll"
-                MouseLeftButtonDown="GripHandle_MouseLeftButtonDown"/>
+                Width="16" Height="56" VerticalAlignment="Center"
+                Background="#55ffffff" Margin="0,0,4,0"/>
         <!-- One TileControl per session -->
         <ItemsControl ItemsSource="{Binding Tiles}">
             <ItemsControl.ItemsPanel>
