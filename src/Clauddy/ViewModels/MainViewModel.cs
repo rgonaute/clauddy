@@ -25,7 +25,7 @@ public class MainViewModel
 
     private void Add(Session s)
     {
-        var tile = new TileViewModel { Label = s.Label, State = s.State };
+        var tile = new TileViewModel { Label = s.Label, State = s.State, Tokens = s.Tokens };
         _byId[s.SessionId] = tile;
         Tiles.Add(tile);
     }
@@ -36,6 +36,7 @@ public class MainViewModel
         {
             tile.Label = s.Label;
             tile.State = s.State;
+            tile.Tokens = s.Tokens;
         }
         else Add(s);
     }

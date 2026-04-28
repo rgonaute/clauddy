@@ -17,6 +17,7 @@ payload=$(cat)
 event=$(echo "$payload" | jq -r '.hook_event_name // empty')
 session_id=$(echo "$payload" | jq -r '.session_id // empty')
 cwd=$(echo "$payload" | jq -r '.cwd // empty')
+transcript_path=$(echo "$payload" | jq -r '.transcript_path // empty')
 [ -n "$event" ] && [ -n "$session_id" ] || exit 0
 
 # Map event → state/action
@@ -30,13 +31,21 @@ case "$event" in
   *) exit 0 ;;
 esac
 
+# Compute total tokens for this session by reading the transcript JSONL.
+# Sums input + output tokens across every assistant message's usage block.
+# Cache hit/miss tokens are folded into input_tokens by Claude Code already.
+tokens=0
+if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
+  tokens=$(jq -s '[.[] | select(.message.role == "assistant") | .message.usage // {} | (.input_tokens // 0) + (.output_tokens // 0)] | add // 0' "$transcript_path" 2>/dev/null) || tokens=0
+fi
+
 # Build JSON
 if [ "$action" = "remove" ]; then
   body=$(jq -n --arg sid "$session_id" --arg cwd "$cwd" --arg lbl "${CLAUDDY_LABEL:-}" \
     '{session_id:$sid, cwd:$cwd, label:$lbl, action:"remove"}')
 else
-  body=$(jq -n --arg sid "$session_id" --arg cwd "$cwd" --arg lbl "${CLAUDDY_LABEL:-}" --arg s "$state" \
-    '{session_id:$sid, cwd:$cwd, label:$lbl, state:$s}')
+  body=$(jq -n --arg sid "$session_id" --arg cwd "$cwd" --arg lbl "${CLAUDDY_LABEL:-}" --arg s "$state" --argjson t "$tokens" \
+    '{session_id:$sid, cwd:$cwd, label:$lbl, state:$s, tokens:$t}')
 fi
 
 # POST. Hard 1s timeout. Failure is silent.

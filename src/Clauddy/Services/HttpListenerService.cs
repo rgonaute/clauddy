@@ -94,6 +94,7 @@ public class HttpListenerService
             string label = r.TryGetProperty("label", out var l) ? l.GetString() ?? "" : "";
             string action = r.TryGetProperty("action", out var a) ? a.GetString() ?? "update" : "update";
             string? state = r.TryGetProperty("state", out var s) ? s.GetString() : null;
+            long tokens = r.TryGetProperty("tokens", out var t) && t.ValueKind == JsonValueKind.Number ? t.GetInt64() : 0;
             if (string.IsNullOrEmpty(sid)) { err = "session_id required"; return false; }
             SessionState? parsed = null;
             if (state != null)
@@ -108,7 +109,7 @@ public class HttpListenerService
                 if (parsed == null) { err = $"invalid state '{state}'"; return false; }
             }
             else if (action != "remove") { err = "state required unless action=remove"; return false; }
-            p = new Payload(sid, cwd, label, parsed, action);
+            p = new Payload(sid, cwd, label, parsed, action, tokens);
             return true;
         }
         catch { err = "invalid JSON"; return false; }
@@ -119,7 +120,7 @@ public class HttpListenerService
         if (p.Action == "remove") { _store.Remove(p.SessionId); return; }
         var label = _resolver.Resolve(p.Cwd, p.Label);
         _store.Upsert(new Session(
-            p.SessionId, label, p.State!.Value, p.Cwd, DateTimeOffset.UtcNow, "http"));
+            p.SessionId, label, p.State!.Value, p.Cwd, DateTimeOffset.UtcNow, "http", p.Tokens));
     }
 
     private static int GetEphemeralPort()
@@ -131,5 +132,5 @@ public class HttpListenerService
         return port;
     }
 
-    private record Payload(string SessionId, string Cwd, string Label, SessionState? State, string Action);
+    private record Payload(string SessionId, string Cwd, string Label, SessionState? State, string Action, long Tokens);
 }

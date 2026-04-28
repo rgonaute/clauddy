@@ -8,4 +8,5 @@ public record Session(
     SessionState State,
     string Cwd,
     DateTimeOffset LastSeen,
-    string Source);
+    string Source,
+    long Tokens = 0);

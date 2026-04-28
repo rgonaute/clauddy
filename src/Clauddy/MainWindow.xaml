@@ -9,11 +9,7 @@
         SizeToContent="WidthAndHeight" ResizeMode="NoResize">
     <StackPanel Orientation="Horizontal" Background="Transparent"
                 MouseLeftButtonDown="DragArea_MouseLeftButtonDown" Cursor="SizeAll">
-        <!-- Visible grip strip on the left edge so the widget is findable when no tiles exist -->
-        <Border x:Name="GripHandle"
-                Width="16" Height="56" VerticalAlignment="Center"
-                Background="#55ffffff" Margin="0,0,4,0"/>
-        <!-- One TileControl per session -->
+        <!-- One TileControl per session; drag from anywhere on a tile -->
         <ItemsControl ItemsSource="{Binding Tiles}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>

@@ -4,7 +4,8 @@
              xmlns:gif="http://wpfanimatedgif.codeplex.com">
     <Border Width="104" Height="124"
             BorderBrush="Black" BorderThickness="3"
-            Background="#0d0d12" Padding="6">
+            Background="#0d0d12" Padding="6"
+            ToolTip="{Binding Label}">
         <Border.Effect>
             <DropShadowEffect Color="Black" BlurRadius="0" ShadowDepth="4" Direction="-45" Opacity="1"/>
         </Border.Effect>
@@ -14,8 +15,8 @@
                        Stretch="Uniform"
                        RenderOptions.BitmapScalingMode="NearestNeighbor"/>
             </Border>
-            <TextBlock Text="{Binding Label}"
-                       FontFamily="Courier New" FontSize="9" FontWeight="Bold"
+            <TextBlock Text="{Binding TokensDisplay}"
+                       FontFamily="Courier New" FontSize="11" FontWeight="Bold"
                        Foreground="White" HorizontalAlignment="Center"
                        Margin="0,4,0,0"/>
         </StackPanel>
