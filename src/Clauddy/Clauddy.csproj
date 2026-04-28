@@ -25,4 +25,19 @@
     <Resource Include="Assets\tray.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\hooks\clauddy-hook.sh">
+      <Link>hooks\clauddy-hook.sh</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\hooks\clauddy-hook.ps1">
+      <Link>hooks\clauddy-hook.ps1</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\hooks\install-wsl.sh">
+      <Link>hooks\install-wsl.sh</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
