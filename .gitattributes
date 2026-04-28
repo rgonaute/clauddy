@@ -1,0 +1,11 @@
+# Force LF for shell scripts so they run cleanly in bash / WSL
+*.sh text eol=lf
+hooks/clauddy-hook.sh text eol=lf
+
+# PowerShell is fine with either; let it follow OS default
+*.ps1 text
+
+# Binary assets — never touch
+*.gif binary
+*.ico binary
+*.png binary
