@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -6,6 +7,7 @@ using Clauddy.Logging;
 using Clauddy.Services;
 using Clauddy.TrayIcon;
 using Clauddy.ViewModels;
+using Clauddy.Views;
 
 namespace Clauddy;
 
@@ -56,6 +58,9 @@ public partial class App : System.Windows.Application
         var autoStart = AutoStartService.Default(exePath);
         _tray = new TrayController(win, autoStart, () => Task.Run(() => RunHookSetupAsync()));
         MainWindow = win;
+
+        if (FirstRunDetector.Default().IsFirstRun())
+            _ = RunHookSetupAsync();
     }
 
     private static void ApplyWindowPosition(Window w, Settings s)
@@ -92,9 +97,98 @@ public partial class App : System.Windows.Application
         base.OnExit(e);
     }
 
-    private Task RunHookSetupAsync()
+    private async Task RunHookSetupAsync()
     {
-        Dispatcher.Invoke(() => System.Windows.MessageBox.Show("Hook setup will go here.", "Clauddy"));
-        return Task.CompletedTask;
+        await Dispatcher.InvokeAsync(() =>
+        {
+            var detector = WslDistroDetector.Default();
+            var distros = detector.List();
+            var dlg = new HookSetupDialog(distros);
+            var ok = dlg.ShowDialog() == true;
+            if (!ok) return;
+
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var scripts = Path.Combine(AppContext.BaseDirectory, "hooks");
+            var inst = new HookInstaller(home, scripts);
+
+            try
+            {
+                if (dlg.InstallWindows) inst.InstallWindows();
+                foreach (var d in dlg.InstallDistros) InstallWslDistro(d, home);
+                System.Windows.MessageBox.Show("Hooks installed. Restart any open Claude Code sessions for changes to take effect.",
+                    "Clauddy", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                _log?.Info($"Hooks installed: windows={dlg.InstallWindows}, wsl=[{string.Join(",", dlg.InstallDistros)}]");
+            }
+            catch (Exception ex)
+            {
+                _log?.Error($"Hook install failed: {ex}");
+                System.Windows.MessageBox.Show($"Hook install failed:\n{ex.Message}", "Clauddy",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        });
+    }
+
+    private void InstallWslDistro(string distro, string winHome)
+    {
+        var winUser = Environment.UserName;
+        var scriptWinPath = Path.Combine(winHome, ".clauddy", "hooks", "install-wsl.sh");
+        if (!File.Exists(scriptWinPath))
+            File.Copy(Path.Combine(AppContext.BaseDirectory, "hooks", "install-wsl.sh"), scriptWinPath);
+        // Convert C:\Users\Ron\.clauddy\hooks\install-wsl.sh to /mnt/c/Users/Ron/.clauddy/hooks/install-wsl.sh
+        var wslPath = "/mnt/" + char.ToLowerInvariant(scriptWinPath[0]) +
+                      scriptWinPath.Substring(2).Replace('\\', '/');
+        var psi = new ProcessStartInfo("wsl.exe",
+            $"-d \"{distro}\" -- bash \"{wslPath}\" \"{winUser}\"")
+        {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        using var p = Process.Start(psi)!;
+        p.WaitForExit(15000);
+        if (p.ExitCode != 0)
+            throw new Exception($"WSL install for '{distro}' failed: {p.StandardError.ReadToEnd()}");
+
+        // Now patch ~/.claude/settings.json INSIDE the distro.
+        // Robustness: if settings.json doesn't exist, treat it as empty {}.
+        // Use a heredoc so we don't have to escape JSON quotes through layered shells.
+        var hooksJson = EmbeddedHooksJson();
+        var patchScript = "mkdir -p ~/.claude && " +
+                          "[ -f ~/.claude/settings.json ] || echo '{}' > ~/.claude/settings.json && " +
+                          $"jq -s '.[0] * .[1]' ~/.claude/settings.json <(cat <<'EOF'\n{hooksJson}\nEOF\n) > ~/.claude/settings.json.new && " +
+                          "mv ~/.claude/settings.json.new ~/.claude/settings.json";
+        var psi2 = new ProcessStartInfo("wsl.exe",
+            $"-d \"{distro}\" -- bash -c \"{patchScript.Replace("\"", "\\\"")}\"")
+        {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        using var p2 = Process.Start(psi2)!;
+        p2.WaitForExit(15000);
+        if (p2.ExitCode != 0)
+            throw new Exception($"WSL settings.json patch for '{distro}' failed: {p2.StandardError.ReadToEnd()}");
+    }
+
+    private static string EmbeddedHooksJson()
+    {
+        var hookCmd = "bash ~/.clauddy/hooks/clauddy-hook.sh";
+        var events = new[] { "SessionStart","UserPromptSubmit","Stop","SubagentStop","Notification","SessionEnd" };
+        var hooksObj = new System.Text.Json.Nodes.JsonObject();
+        foreach (var evt in events)
+        {
+            hooksObj[evt] = new System.Text.Json.Nodes.JsonArray(
+                new System.Text.Json.Nodes.JsonObject
+                {
+                    ["matcher"] = "*",
+                    ["hooks"] = new System.Text.Json.Nodes.JsonArray(
+                        new System.Text.Json.Nodes.JsonObject
+                        {
+                            ["type"] = "command",
+                            ["command"] = hookCmd,
+                            ["_clauddy"] = true
+                        })
+                });
+        }
+        var root = new System.Text.Json.Nodes.JsonObject { ["hooks"] = hooksObj };
+        return root.ToJsonString();
     }
 }
