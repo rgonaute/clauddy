@@ -20,6 +20,9 @@ Thumbs.db
 # Brainstorm session scratch (kept out of repo)
 .superpowers/
 
+# Claude Code session-local settings
+.claude/
+
 # IDE
 .idea/
 *.iml
