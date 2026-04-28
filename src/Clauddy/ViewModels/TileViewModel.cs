@@ -4,47 +4,70 @@ using Clauddy.Models;
 
 namespace Clauddy.ViewModels;
 
+/// <summary>
+/// Per-session view-model. Surfaces label + state for the pill bar, plus tokens
+/// for the metrics row when this tile is selected.
+/// </summary>
 public class TileViewModel : INotifyPropertyChanged
 {
+    public string SessionId { get; init; } = "";
+
     private string _label = "";
+    public string Label { get => _label; set { if (_label != value) { _label = value; OnChanged(); } } }
+
     private SessionState _state;
-    private long _tokens;
-
-    public string Label
-    {
-        get => _label;
-        set { if (_label != value) { _label = value; OnChanged(); } }
-    }
-
     public SessionState State
     {
         get => _state;
-        set { if (_state != value) { _state = value; OnChanged(); OnChanged(nameof(GifSource)); } }
+        set
+        {
+            if (_state == value) return;
+            _state = value;
+            OnChanged();
+            OnChanged(nameof(IsAlerting));
+            OnChanged(nameof(StateDot));
+        }
     }
 
-    public long Tokens
+    public bool IsAlerting => _state == SessionState.Alerting;
+
+    /// <summary>Color string for the small status dot on the pill.</summary>
+    public string StateDot => _state switch
     {
-        get => _tokens;
-        set { if (_tokens != value) { _tokens = value; OnChanged(); OnChanged(nameof(TokensDisplay)); } }
+        SessionState.Alerting => "#ef4444",
+        SessionState.Working  => "#f59e0b",
+        _                     => "#6b7280"
+    };
+
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set { if (_isSelected != value) { _isSelected = value; OnChanged(); } }
     }
 
-    public string TokensDisplay => Format(_tokens);
+    private long _inputTokens;
+    public long InputTokens { get => _inputTokens; set { if (_inputTokens != value) { _inputTokens = value; OnChanged(); OnChanged(nameof(TotalTokens)); OnChanged(nameof(CacheHitRate)); } } }
 
-    private static string Format(long n) => n switch
-    {
-        < 1_000          => n.ToString(),
-        < 10_000         => $"{n / 1000.0:0.0}K",
-        < 1_000_000      => $"{n / 1000:0}K",
-        < 10_000_000     => $"{n / 1_000_000.0:0.0}M",
-        _                => $"{n / 1_000_000:0}M"
-    };
+    private long _outputTokens;
+    public long OutputTokens { get => _outputTokens; set { if (_outputTokens != value) { _outputTokens = value; OnChanged(); OnChanged(nameof(TotalTokens)); } } }
 
-    public string GifSource => State switch
+    private long _cacheCreationTokens;
+    public long CacheCreationTokens { get => _cacheCreationTokens; set { if (_cacheCreationTokens != value) { _cacheCreationTokens = value; OnChanged(); OnChanged(nameof(TotalTokens)); OnChanged(nameof(CacheHitRate)); } } }
+
+    private long _cacheReadTokens;
+    public long CacheReadTokens { get => _cacheReadTokens; set { if (_cacheReadTokens != value) { _cacheReadTokens = value; OnChanged(); OnChanged(nameof(TotalTokens)); OnChanged(nameof(CacheHitRate)); } } }
+
+    public long TotalTokens => _inputTokens + _outputTokens + _cacheCreationTokens + _cacheReadTokens;
+
+    public double CacheHitRate
     {
-        SessionState.Working  => "pack://application:,,,/Assets/working.gif",
-        SessionState.Alerting => "pack://application:,,,/Assets/alerting.gif",
-        _                     => "pack://application:,,,/Assets/chilling.gif"
-    };
+        get
+        {
+            var totalInput = _inputTokens + _cacheCreationTokens + _cacheReadTokens;
+            return totalInput == 0 ? 0 : (double)_cacheReadTokens / totalInput;
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnChanged([CallerMemberName] string? name = null) =>

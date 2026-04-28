@@ -17,8 +17,11 @@ public partial class App : System.Windows.Application
     private HttpListenerService? _http;
     private EndpointFile? _endpoint;
     private DispatcherTimer? _gcTimer;
+    private DispatcherTimer? _usageTimer;
     private FileLogger? _log;
     private TrayController? _tray;
+    private MainViewModel? _vm;
+    private Settings _settings = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -56,21 +59,37 @@ public partial class App : System.Windows.Application
         _gcTimer.Tick += (_, _) => lifecycle.Tick();
         _gcTimer.Start();
 
-        var settings = new SettingsStore(SettingsStore.DefaultPath).Load();
-        var vm = new MainViewModel(store);
-        var win = new MainWindow(vm);
-        ApplyWindowPosition(win, settings);
+        _settings = new SettingsStore(SettingsStore.DefaultPath).Load();
+        _vm = new MainViewModel(store);
+        var win = new MainWindow(_vm);
+        ApplyWindowPosition(win, _settings);
         win.LocationChanged += (_, _) =>
         {
-            settings.WindowX = win.Left;
-            settings.WindowY = win.Top;
-            new SettingsStore(SettingsStore.DefaultPath).Save(settings);
+            _settings.WindowX = win.Left;
+            _settings.WindowY = win.Top;
+            new SettingsStore(SettingsStore.DefaultPath).Save(_settings);
         };
         win.Show();
         var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!;
         var autoStart = AutoStartService.Default(exePath);
         _tray = new TrayController(win, autoStart, () => Task.Run(() => RunHookSetupAsync()));
         MainWindow = win;
+
+        // Refresh /usage-style stats every 60s by walking transcript files.
+        var usageStats = UsageStatsService.Default();
+        void RefreshUsage()
+        {
+            try
+            {
+                var stats = usageStats.Compute(DateTimeOffset.UtcNow);
+                _vm.UpdateUsage(stats, _settings.Quota5hTokens);
+            }
+            catch (Exception ex) { _log?.Warn($"UsageStats refresh failed: {ex.Message}"); }
+        }
+        RefreshUsage();
+        _usageTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+        _usageTimer.Tick += (_, _) => RefreshUsage();
+        _usageTimer.Start();
 
         if (FirstRunDetector.Default().IsFirstRun())
             _ = RunHookSetupAsync();
@@ -103,6 +122,7 @@ public partial class App : System.Windows.Application
     {
         _log?.Info("Clauddy shutting down");
         _gcTimer?.Stop();
+        _usageTimer?.Stop();
         _http?.Stop();
         _endpoint?.Delete();
         _singleton?.ReleaseMutex();
@@ -116,7 +136,7 @@ public partial class App : System.Windows.Application
         {
             var detector = WslDistroDetector.Default();
             var distros = detector.List();
-            var dlg = new HookSetupDialog(distros);
+            var dlg = new HookSetupDialog(distros, _settings.Quota5hTokens);
             var ok = dlg.ShowDialog() == true;
             if (!ok) return;
 
@@ -128,9 +148,19 @@ public partial class App : System.Windows.Application
             {
                 if (dlg.InstallWindows) inst.InstallWindows();
                 foreach (var d in dlg.InstallDistros) InstallWslDistro(d, home);
+
+                // Persist quota + immediately refresh metrics.
+                _settings.Quota5hTokens = dlg.Quota5hTokens;
+                new SettingsStore(SettingsStore.DefaultPath).Save(_settings);
+                if (_vm != null)
+                {
+                    var stats = UsageStatsService.Default().Compute(DateTimeOffset.UtcNow);
+                    _vm.UpdateUsage(stats, _settings.Quota5hTokens);
+                }
+
                 System.Windows.MessageBox.Show("Hooks installed. Restart any open Claude Code sessions for changes to take effect.",
                     "Clauddy", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                _log?.Info($"Hooks installed: windows={dlg.InstallWindows}, wsl=[{string.Join(",", dlg.InstallDistros)}]");
+                _log?.Info($"Hooks installed: windows={dlg.InstallWindows}, wsl=[{string.Join(",", dlg.InstallDistros)}], quota5h={dlg.Quota5hTokens}");
             }
             catch (Exception ex)
             {
