@@ -9,4 +9,24 @@ public record Session(
     string Cwd,
     DateTimeOffset LastSeen,
     string Source,
-    long Tokens = 0);
+    long Tokens = 0,
+    long InputTokens = 0,
+    long OutputTokens = 0,
+    long CacheCreationTokens = 0,
+    long CacheReadTokens = 0)
+{
+    public long TotalTokens => InputTokens + OutputTokens + CacheCreationTokens + CacheReadTokens;
+
+    /// <summary>
+    /// Fraction of input that was served from cache, in [0, 1].
+    /// 0 when no input has been processed yet.
+    /// </summary>
+    public double CacheHitRate
+    {
+        get
+        {
+            var totalInput = InputTokens + CacheCreationTokens + CacheReadTokens;
+            return totalInput == 0 ? 0 : (double)CacheReadTokens / totalInput;
+        }
+    }
+}

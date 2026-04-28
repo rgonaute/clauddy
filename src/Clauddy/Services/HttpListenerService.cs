@@ -95,6 +95,10 @@ public class HttpListenerService
             string action = r.TryGetProperty("action", out var a) ? a.GetString() ?? "update" : "update";
             string? state = r.TryGetProperty("state", out var s) ? s.GetString() : null;
             long tokens = r.TryGetProperty("tokens", out var t) && t.ValueKind == JsonValueKind.Number ? t.GetInt64() : 0;
+            long inputTok = ReadLong(r, "input_tokens");
+            long outputTok = ReadLong(r, "output_tokens");
+            long cacheCreate = ReadLong(r, "cache_creation_tokens");
+            long cacheRead = ReadLong(r, "cache_read_tokens");
             if (string.IsNullOrEmpty(sid)) { err = "session_id required"; return false; }
             SessionState? parsed = null;
             if (state != null)
@@ -109,18 +113,22 @@ public class HttpListenerService
                 if (parsed == null) { err = $"invalid state '{state}'"; return false; }
             }
             else if (action != "remove") { err = "state required unless action=remove"; return false; }
-            p = new Payload(sid, cwd, label, parsed, action, tokens);
+            p = new Payload(sid, cwd, label, parsed, action, tokens, inputTok, outputTok, cacheCreate, cacheRead);
             return true;
         }
         catch { err = "invalid JSON"; return false; }
     }
+
+    private static long ReadLong(JsonElement r, string name) =>
+        r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
 
     private void Apply(Payload p)
     {
         if (p.Action == "remove") { _store.Remove(p.SessionId); return; }
         var label = _resolver.Resolve(p.Cwd, p.Label);
         _store.Upsert(new Session(
-            p.SessionId, label, p.State!.Value, p.Cwd, DateTimeOffset.UtcNow, "http", p.Tokens));
+            p.SessionId, label, p.State!.Value, p.Cwd, DateTimeOffset.UtcNow, "http",
+            p.Tokens, p.InputTokens, p.OutputTokens, p.CacheCreationTokens, p.CacheReadTokens));
     }
 
     private static int GetEphemeralPort()
@@ -132,5 +140,6 @@ public class HttpListenerService
         return port;
     }
 
-    private record Payload(string SessionId, string Cwd, string Label, SessionState? State, string Action, long Tokens);
+    private record Payload(string SessionId, string Cwd, string Label, SessionState? State, string Action,
+        long Tokens, long InputTokens, long OutputTokens, long CacheCreationTokens, long CacheReadTokens);
 }

@@ -31,12 +31,19 @@ case "$event" in
   *) exit 0 ;;
 esac
 
-# Compute total tokens for this session by reading the transcript JSONL.
-# Sums input + output tokens across every assistant message's usage block.
-# Cache hit/miss tokens are folded into input_tokens by Claude Code already.
-tokens=0
+# Compute per-bucket token counts for this session by reading the transcript JSONL.
+# Buckets: input (full-price input), output, cache_creation (1.25x input cost),
+# cache_read (0.1x input cost). Widget aggregates these into total + cache hit rate.
+input_tokens=0; output_tokens=0; cache_creation=0; cache_read=0
 if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
-  tokens=$(jq -s '[.[] | select(.message.role == "assistant") | .message.usage // {} | (.input_tokens // 0) + (.output_tokens // 0)] | add // 0' "$transcript_path" 2>/dev/null) || tokens=0
+  read -r input_tokens output_tokens cache_creation cache_read <<< "$(jq -s -r '
+    [.[] | select(.message.role == "assistant") | .message.usage // {}] as $u
+    | (($u | map(.input_tokens // 0) | add // 0) | tostring) + " "
+    + (($u | map(.output_tokens // 0) | add // 0) | tostring) + " "
+    + (($u | map(.cache_creation_input_tokens // 0) | add // 0) | tostring) + " "
+    + (($u | map(.cache_read_input_tokens // 0) | add // 0) | tostring)
+  ' "$transcript_path" 2>/dev/null)" || true
+  : "${input_tokens:=0}" "${output_tokens:=0}" "${cache_creation:=0}" "${cache_read:=0}"
 fi
 
 # Build JSON
@@ -44,8 +51,9 @@ if [ "$action" = "remove" ]; then
   body=$(jq -n --arg sid "$session_id" --arg cwd "$cwd" --arg lbl "${CLAUDDY_LABEL:-}" \
     '{session_id:$sid, cwd:$cwd, label:$lbl, action:"remove"}')
 else
-  body=$(jq -n --arg sid "$session_id" --arg cwd "$cwd" --arg lbl "${CLAUDDY_LABEL:-}" --arg s "$state" --argjson t "$tokens" \
-    '{session_id:$sid, cwd:$cwd, label:$lbl, state:$s, tokens:$t}')
+  body=$(jq -n --arg sid "$session_id" --arg cwd "$cwd" --arg lbl "${CLAUDDY_LABEL:-}" --arg s "$state" \
+    --argjson it "$input_tokens" --argjson ot "$output_tokens" --argjson cc "$cache_creation" --argjson cr "$cache_read" \
+    '{session_id:$sid, cwd:$cwd, label:$lbl, state:$s, input_tokens:$it, output_tokens:$ot, cache_creation_tokens:$cc, cache_read_tokens:$cr}')
 fi
 
 # POST. Hard 1s timeout. Failure is silent.
