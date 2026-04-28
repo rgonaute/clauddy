@@ -13,7 +13,8 @@ public record Session(
     long InputTokens = 0,
     long OutputTokens = 0,
     long CacheCreationTokens = 0,
-    long CacheReadTokens = 0)
+    long CacheReadTokens = 0,
+    int Pid = 0)
 {
     public long TotalTokens => InputTokens + OutputTokens + CacheCreationTokens + CacheReadTokens;
 

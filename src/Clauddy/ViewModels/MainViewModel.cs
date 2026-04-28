@@ -97,6 +97,7 @@ public class MainViewModel : INotifyPropertyChanged
         var tile = new TileViewModel
         {
             SessionId = s.SessionId,
+            Pid = s.Pid,
             Label = s.Label,
             State = s.State,
             InputTokens = s.InputTokens,
@@ -117,6 +118,8 @@ public class MainViewModel : INotifyPropertyChanged
         {
             tile.Label = s.Label;
             tile.State = s.State;
+            // Latest hook payload is the freshest pid for that session.
+            if (s.Pid != 0) tile.Pid = s.Pid;
             tile.InputTokens = s.InputTokens;
             tile.OutputTokens = s.OutputTokens;
             tile.CacheCreationTokens = s.CacheCreationTokens;

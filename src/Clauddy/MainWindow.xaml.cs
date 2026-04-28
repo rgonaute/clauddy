@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using Clauddy.Services;
 using Clauddy.ViewModels;
 
 namespace Clauddy;
@@ -17,6 +18,7 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr h, int n, int v);
 
     private readonly MainViewModel _vm;
+    private readonly TerminalFocuser _focuser = new();
 
     public MainWindow(MainViewModel vm)
     {
@@ -43,7 +45,9 @@ public partial class MainWindow : Window
         if (sender is System.Windows.Controls.Button btn && btn.Tag is TileViewModel tile)
         {
             _vm.Selected = tile;
-            // V07 will hook in here: focus that session's terminal too.
+            // Best-effort: also focus the terminal that owns this Claude Code session.
+            // Falls through silently if the chain doesn't yield a windowed ancestor.
+            if (tile.Pid > 0) _focuser.TryFocus(tile.Pid);
         }
     }
 }

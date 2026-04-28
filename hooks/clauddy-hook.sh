@@ -46,6 +46,12 @@ if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
   : "${input_tokens:=0}" "${output_tokens:=0}" "${cache_creation:=0}" "${cache_read:=0}"
 fi
 
+# Hook's own PID lets the widget walk up the process tree to find the owning
+# terminal window for click-to-focus. $$ refers to the bash subshell running this
+# script, which is a child of the Claude Code process, which is a child of the
+# terminal — exactly the chain the widget walks.
+hook_pid="$$"
+
 # Build JSON
 if [ "$action" = "remove" ]; then
   body=$(jq -n --arg sid "$session_id" --arg cwd "$cwd" --arg lbl "${CLAUDDY_LABEL:-}" \
@@ -53,7 +59,8 @@ if [ "$action" = "remove" ]; then
 else
   body=$(jq -n --arg sid "$session_id" --arg cwd "$cwd" --arg lbl "${CLAUDDY_LABEL:-}" --arg s "$state" \
     --argjson it "$input_tokens" --argjson ot "$output_tokens" --argjson cc "$cache_creation" --argjson cr "$cache_read" \
-    '{session_id:$sid, cwd:$cwd, label:$lbl, state:$s, input_tokens:$it, output_tokens:$ot, cache_creation_tokens:$cc, cache_read_tokens:$cr}')
+    --argjson pid "$hook_pid" \
+    '{session_id:$sid, cwd:$cwd, label:$lbl, state:$s, input_tokens:$it, output_tokens:$ot, cache_creation_tokens:$cc, cache_read_tokens:$cr, pid:$pid}')
 fi
 
 # POST. Hard 1s timeout. Failure is silent.

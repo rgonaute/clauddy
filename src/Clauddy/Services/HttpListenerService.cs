@@ -99,6 +99,7 @@ public class HttpListenerService
             long outputTok = ReadLong(r, "output_tokens");
             long cacheCreate = ReadLong(r, "cache_creation_tokens");
             long cacheRead = ReadLong(r, "cache_read_tokens");
+            int pid = (int)ReadLong(r, "pid");
             if (string.IsNullOrEmpty(sid)) { err = "session_id required"; return false; }
             SessionState? parsed = null;
             if (state != null)
@@ -113,7 +114,7 @@ public class HttpListenerService
                 if (parsed == null) { err = $"invalid state '{state}'"; return false; }
             }
             else if (action != "remove") { err = "state required unless action=remove"; return false; }
-            p = new Payload(sid, cwd, label, parsed, action, tokens, inputTok, outputTok, cacheCreate, cacheRead);
+            p = new Payload(sid, cwd, label, parsed, action, tokens, inputTok, outputTok, cacheCreate, cacheRead, pid);
             return true;
         }
         catch { err = "invalid JSON"; return false; }
@@ -128,7 +129,7 @@ public class HttpListenerService
         var label = _resolver.Resolve(p.Cwd, p.Label);
         _store.Upsert(new Session(
             p.SessionId, label, p.State!.Value, p.Cwd, DateTimeOffset.UtcNow, "http",
-            p.Tokens, p.InputTokens, p.OutputTokens, p.CacheCreationTokens, p.CacheReadTokens));
+            p.Tokens, p.InputTokens, p.OutputTokens, p.CacheCreationTokens, p.CacheReadTokens, p.Pid));
     }
 
     private static int GetEphemeralPort()
@@ -141,5 +142,5 @@ public class HttpListenerService
     }
 
     private record Payload(string SessionId, string Cwd, string Label, SessionState? State, string Action,
-        long Tokens, long InputTokens, long OutputTokens, long CacheCreationTokens, long CacheReadTokens);
+        long Tokens, long InputTokens, long OutputTokens, long CacheCreationTokens, long CacheReadTokens, int Pid);
 }

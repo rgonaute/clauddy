@@ -12,6 +12,9 @@ public class TileViewModel : INotifyPropertyChanged
 {
     public string SessionId { get; init; } = "";
 
+    /// <summary>Hook script's PID (its own $$). Used to walk up to the terminal hwnd on click.</summary>
+    public int Pid { get; set; }
+
     private string _label = "";
     public string Label { get => _label; set { if (_label != value) { _label = value; OnChanged(); } } }
 
