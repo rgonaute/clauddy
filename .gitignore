@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Single-file publish output
+publish/
+*.exe
+*.pdb
+
+# Installer artifacts
+installer/Output/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Brainstorm session scratch (kept out of repo)
+.superpowers/
+
+# IDE
+.idea/
+*.iml
