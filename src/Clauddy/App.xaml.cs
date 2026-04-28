@@ -23,6 +23,19 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        if (e.Args.Contains("--uninstall-hooks"))
+        {
+            try
+            {
+                var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                var scripts = System.IO.Path.Combine(AppContext.BaseDirectory, "hooks");
+                new Clauddy.Services.HookInstaller(home, scripts).UninstallWindows();
+            }
+            catch { }
+            Shutdown(); return;
+        }
+
         _log = FileLogger.Default();
         _log.Info("Clauddy starting");
 
