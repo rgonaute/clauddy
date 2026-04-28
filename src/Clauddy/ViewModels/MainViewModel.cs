@@ -19,6 +19,15 @@ public class MainViewModel
     private void OnSessionsChanged(object? _, NotifyCollectionChangedEventArgs e)
     {
         if (e.Action == NotifyCollectionChangedAction.Reset) { _byId.Clear(); Tiles.Clear(); return; }
+
+        // Replace = same SessionId being upserted. Mutate the existing tile in place
+        // so the GIF doesn't reload from frame 0 on every state/token update.
+        if (e.Action == NotifyCollectionChangedAction.Replace)
+        {
+            if (e.NewItems != null) foreach (Session s in e.NewItems) Upsert(s);
+            return;
+        }
+
         if (e.OldItems != null) foreach (Session s in e.OldItems) Remove(s.SessionId);
         if (e.NewItems != null) foreach (Session s in e.NewItems) Upsert(s);
     }
