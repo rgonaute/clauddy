@@ -21,4 +21,8 @@
     <Resource Include="Assets\chilling.gif" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Assets\tray.ico" />
+  </ItemGroup>
+
 </Project>

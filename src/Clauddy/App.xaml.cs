@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Clauddy.Logging;
 using Clauddy.Services;
+using Clauddy.TrayIcon;
 using Clauddy.ViewModels;
 
 namespace Clauddy;
@@ -15,6 +16,7 @@ public partial class App : System.Windows.Application
     private EndpointFile? _endpoint;
     private DispatcherTimer? _gcTimer;
     private FileLogger? _log;
+    private TrayController? _tray;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -50,6 +52,9 @@ public partial class App : System.Windows.Application
             new SettingsStore(SettingsStore.DefaultPath).Save(settings);
         };
         win.Show();
+        var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!;
+        var autoStart = AutoStartService.Default(exePath);
+        _tray = new TrayController(win, autoStart, () => Task.Run(() => RunHookSetupAsync()));
         MainWindow = win;
     }
 
@@ -83,6 +88,13 @@ public partial class App : System.Windows.Application
         _http?.Stop();
         _endpoint?.Delete();
         _singleton?.ReleaseMutex();
+        _tray?.Dispose();
         base.OnExit(e);
+    }
+
+    private Task RunHookSetupAsync()
+    {
+        Dispatcher.Invoke(() => System.Windows.MessageBox.Show("Hook setup will go here.", "Clauddy"));
+        return Task.CompletedTask;
     }
 }
