@@ -54,7 +54,8 @@ public partial class App : System.Windows.Application
         _endpoint.Write(url);
         _log.Info($"Listening on {url}; endpoint written to {EndpointFile.DefaultPath}");
 
-        var lifecycle = new LifecycleManager(store, () => DateTimeOffset.UtcNow, TimeSpan.FromMinutes(30));
+        var lifecycle = new LifecycleManager(store, () => DateTimeOffset.UtcNow, TimeSpan.FromMinutes(30),
+            LifecycleManager.DefaultIsAlive);
         _gcTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         _gcTimer.Tick += (_, _) => lifecycle.Tick();
         _gcTimer.Start();

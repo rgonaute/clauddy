@@ -46,11 +46,12 @@ if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
   : "${input_tokens:=0}" "${output_tokens:=0}" "${cache_creation:=0}" "${cache_read:=0}"
 fi
 
-# Hook's own PID lets the widget walk up the process tree to find the owning
-# terminal window for click-to-focus. $$ refers to the bash subshell running this
-# script, which is a child of the Claude Code process, which is a child of the
-# terminal — exactly the chain the widget walks.
-hook_pid="$$"
+# Send the parent PID — this is the Claude Code process itself, which lives for
+# the whole session. The widget uses this for two things:
+#   1. click-to-focus: walks up the process tree to find the owning terminal
+#   2. liveness check: if the process is gone, remove the tile (covers the case
+#      where Claude Code dies without firing SessionEnd: Ctrl+C, closed terminal)
+hook_pid="$PPID"
 
 # Build JSON
 if [ "$action" = "remove" ]; then

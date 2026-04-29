@@ -29,4 +29,43 @@ public class LifecycleManagerTests
         mgr.Tick();
         store.Sessions.Should().HaveCount(1);
     }
+
+    [Fact]
+    public void Tick_removes_sessions_whose_process_is_dead()
+    {
+        var store = new SessionStore();
+        var now = DateTimeOffset.UtcNow;
+        store.Upsert(new("alive", "a", SessionState.Working, "/c/a", now, "x", 0, 0, 0, 0, 0, Pid: 100));
+        store.Upsert(new("dead",  "d", SessionState.Working, "/c/d", now, "x", 0, 0, 0, 0, 0, Pid: 200));
+        // Liveness probe says PID 100 is alive, 200 is dead.
+        var mgr = new LifecycleManager(store, () => now, TimeSpan.FromMinutes(30), pid => pid == 100);
+        mgr.Tick();
+        store.Sessions.Select(s => s.SessionId).Should().BeEquivalentTo(new[] { "alive" });
+    }
+
+    [Fact]
+    public void Tick_does_not_check_liveness_for_pid_zero()
+    {
+        // Sessions reported before the PID-on-hook change have Pid=0.
+        // We must not treat them as dead; existing stale-timeout still applies.
+        var store = new SessionStore();
+        var now = DateTimeOffset.UtcNow;
+        store.Upsert(new("legacy", "l", SessionState.Working, "/c/l", now, "x", 0, 0, 0, 0, 0, Pid: 0));
+        var probeCalls = 0;
+        var mgr = new LifecycleManager(store, () => now, TimeSpan.FromMinutes(30), _ => { probeCalls++; return false; });
+        mgr.Tick();
+        probeCalls.Should().Be(0);
+        store.Sessions.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void Tick_without_liveness_probe_only_does_staleness()
+    {
+        var store = new SessionStore();
+        var now = DateTimeOffset.UtcNow;
+        store.Upsert(new("a", "a", SessionState.Working, "/c/a", now, "x", 0, 0, 0, 0, 0, Pid: 999));
+        var mgr = new LifecycleManager(store, () => now, TimeSpan.FromMinutes(30));
+        mgr.Tick();
+        store.Sessions.Should().HaveCount(1);
+    }
 }
