@@ -47,8 +47,8 @@ public class LabelResolver
     public string Resolve(string cwd, string? overrideLabel)
     {
         if (!string.IsNullOrWhiteSpace(overrideLabel)) return overrideLabel!;
-        if (_git.TryGetRepoInfo(cwd, out var root, out var branch))
-            return $"{Path.GetFileName(root.TrimEnd('/', '\\'))}@{branch}";
+        if (_git.TryGetRepoInfo(cwd, out var root, out _))
+            return Path.GetFileName(root.TrimEnd('/', '\\'));
         return Path.GetFileName(cwd.TrimEnd('/', '\\'));
     }
 }

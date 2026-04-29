@@ -29,14 +29,14 @@ public class LabelResolverTests
     public void Empty_override_falls_through()
     {
         var r = new LabelResolver(new FakeGit { RepoRoot = "/c/repo", Branch = "main" });
-        r.Resolve("/c/repo/sub", "").Should().Be("repo@main");
+        r.Resolve("/c/repo/sub", "").Should().Be("repo");
     }
 
     [Fact]
-    public void Git_repo_yields_repo_at_branch()
+    public void Git_repo_yields_repo_name()
     {
         var r = new LabelResolver(new FakeGit { RepoRoot = "/c/projects/clauddy", Branch = "feat/x" });
-        r.Resolve("/c/projects/clauddy/src", null).Should().Be("clauddy@feat/x");
+        r.Resolve("/c/projects/clauddy/src", null).Should().Be("clauddy");
     }
 
     [Fact]
