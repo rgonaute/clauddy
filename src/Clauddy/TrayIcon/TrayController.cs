@@ -37,8 +37,10 @@ public class TrayController
         {
             if (_window.IsVisible) _window.Hide();
             else _window.Show();
-            showHide.Header = _window.IsVisible ? "Hide widget" : "Show widget";
         };
+        // Auto-hide can flip Visibility without touching the menu — keep the label synced.
+        _window.IsVisibleChanged += (_, _) =>
+            showHide.Header = _window.IsVisible ? "Hide widget" : "Show widget";
         menu.Items.Add(showHide);
 
         var reset = new System.Windows.Controls.MenuItem { Header = "Reset position" };

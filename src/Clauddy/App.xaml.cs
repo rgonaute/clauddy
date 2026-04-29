@@ -80,6 +80,14 @@ public partial class App : System.Windows.Application
             new SettingsStore(SettingsStore.DefaultPath).Save(_settings);
         };
         win.Show();
+        // Auto-hide when no Claude Code sessions are active. Pops back in when a hook fires;
+        // disappears ~30s after the last session ends (via SessionEnd or liveness GC).
+        if (_vm.Tiles.Count == 0) win.Hide();
+        _vm.Tiles.CollectionChanged += (_, _) =>
+        {
+            if (_vm.Tiles.Count > 0 && !win.IsVisible) win.Show();
+            else if (_vm.Tiles.Count == 0 && win.IsVisible) win.Hide();
+        };
         var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!;
         var autoStart = AutoStartService.Default(exePath);
         _tray = new TrayController(win, autoStart, () => Task.Run(() => RunHookSetupAsync()));
