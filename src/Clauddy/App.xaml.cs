@@ -134,7 +134,10 @@ public partial class App : System.Windows.Application
     }
 
     private static bool IsOnAnyScreen(double x, double y) =>
-        System.Windows.Forms.Screen.AllScreens.Any(scr => scr.WorkingArea.Contains((int)x, (int)y));
+        x >= SystemParameters.VirtualScreenLeft &&
+        y >= SystemParameters.VirtualScreenTop &&
+        x <  SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth &&
+        y <  SystemParameters.VirtualScreenTop  + SystemParameters.VirtualScreenHeight;
 
     protected override void OnExit(ExitEventArgs e)
     {

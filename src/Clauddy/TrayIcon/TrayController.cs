@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using Clauddy.Services;
-using Hardcodet.Wpf.TaskbarNotification;
+using H.NotifyIcon;
 
 namespace Clauddy.TrayIcon;
 
