@@ -18,17 +18,23 @@ event=$(echo "$payload" | jq -r '.hook_event_name // empty')
 session_id=$(echo "$payload" | jq -r '.session_id // empty')
 cwd=$(echo "$payload" | jq -r '.cwd // empty')
 transcript_path=$(echo "$payload" | jq -r '.transcript_path // empty')
+message=$(echo "$payload" | jq -r '.message // empty')
 [ -n "$event" ] && [ -n "$session_id" ] || exit 0
 
-# Map event → state/action. Notification is intentionally NOT mapped: Claude Code
-# fires it for idle nudges and completion pings, not just permission prompts, so
-# it produces sticky false-positive "alerting" states. Stop/UserPromptSubmit are
-# reliable enough on their own.
+# Map event → state/action. For Notification we filter on the message text:
+# Claude Code fires it for permission prompts AND idle nudges AND completion
+# pings, but only the permission case warrants an "alerting" pill. Pattern
+# match on "permission" to avoid sticky false positives.
 state=""; action="update"
 case "$event" in
   SessionStart)        state="chilling" ;;
   UserPromptSubmit)    state="working" ;;
   Stop|SubagentStop)   state="chilling" ;;
+  Notification)
+    case "$message" in
+      *permission*|*Permission*) state="alerting" ;;
+      *) exit 0 ;;
+    esac ;;
   SessionEnd)          action="remove" ;;
   *) exit 0 ;;
 esac

@@ -9,12 +9,12 @@ public class HookInstaller
 {
     private readonly string _home;
     private readonly string _scriptSource;
-    // Events we register on install. Notification is intentionally excluded — see
-    // clauddy-hook.sh for rationale.
+    // Events we register on install. The hook script filters Notification on its
+    // own (only permission-prompt messages flip alerting), so we register it.
     private static readonly string[] InstallEvents =
-        { "SessionStart", "UserPromptSubmit", "Stop", "SubagentStop", "SessionEnd" };
-    // Events we sweep on uninstall. Includes Notification so legacy installs that
-    // registered it get cleaned up too.
+        { "SessionStart", "UserPromptSubmit", "Stop", "SubagentStop", "Notification", "SessionEnd" };
+    // Events we sweep on uninstall — same set; kept separate so install/uninstall
+    // can diverge if needed without surprising legacy users.
     private static readonly string[] UninstallEvents =
         { "SessionStart", "UserPromptSubmit", "Stop", "SubagentStop", "Notification", "SessionEnd" };
 

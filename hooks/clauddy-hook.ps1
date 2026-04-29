@@ -14,15 +14,17 @@ try { $payload = $payloadRaw | ConvertFrom-Json } catch { exit 0 }
 $event = $payload.hook_event_name
 $sessionId = $payload.session_id
 $cwd = $payload.cwd
+$message = $payload.message
 if (-not $event -or -not $sessionId) { exit 0 }
 
-# Notification is intentionally not mapped — see clauddy-hook.sh for rationale.
+# Notification: alert only on permission prompts. See clauddy-hook.sh for rationale.
 $state = $null; $action = 'update'
 switch ($event) {
   'SessionStart'     { $state = 'chilling' }
   'UserPromptSubmit' { $state = 'working' }
   'Stop'             { $state = 'chilling' }
   'SubagentStop'     { $state = 'chilling' }
+  'Notification'     { if ($message -match 'permission') { $state = 'alerting' } else { exit 0 } }
   'SessionEnd'       { $action = 'remove' }
   default            { exit 0 }
 }

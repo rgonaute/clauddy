@@ -232,8 +232,9 @@ public partial class App : System.Windows.Application
     private static string EmbeddedHooksJson()
     {
         var hookCmd = "bash ~/.clauddy/hooks/clauddy-hook.sh";
-        // Notification omitted — see clauddy-hook.sh for why we don't act on it.
-        var events = new[] { "SessionStart","UserPromptSubmit","Stop","SubagentStop","SessionEnd" };
+        // Notification is registered; the hook script filters by message so only
+        // permission prompts flip the pill to alerting.
+        var events = new[] { "SessionStart","UserPromptSubmit","Stop","SubagentStop","Notification","SessionEnd" };
         var hooksObj = new System.Text.Json.Nodes.JsonObject();
         foreach (var evt in events)
         {
