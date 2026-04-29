@@ -28,6 +28,10 @@ public class LifecycleManager
             var p = Process.GetProcessById(pid);
             return !p.HasExited;
         }
+        // PID isn't a Windows-visible process — e.g. MSYS/Git Bash sends $PPID=1, WSL
+        // sends a Linux PID. Treat as opaque/alive: we can't confirm death, so let
+        // SessionEnd + 30-min stale GC handle cleanup instead of nuking on first tick.
+        catch (ArgumentException) { return true; }
         catch { return false; }
     };
 

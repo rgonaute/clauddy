@@ -59,6 +59,15 @@ public class LifecycleManagerTests
     }
 
     [Fact]
+    public void DefaultIsAlive_treats_unknown_pid_as_alive()
+    {
+        // MSYS/Git Bash sends $PPID=1, WSL sends a Linux PID — neither maps to a
+        // Windows process, so GetProcessById throws ArgumentException. We must treat
+        // those as opaque/alive, not dead, or sessions disappear within 30s of arriving.
+        LifecycleManager.DefaultIsAlive(int.MaxValue).Should().BeTrue();
+    }
+
+    [Fact]
     public void Tick_without_liveness_probe_only_does_staleness()
     {
         var store = new SessionStore();
