@@ -54,6 +54,19 @@ public class MainViewModel : INotifyPropertyChanged
     public double AggregateCacheRate { get => _aggCacheRate; set { _aggCacheRate = value; OnChanged(); OnChanged(nameof(AggregateCachePercent)); } }
     public string AggregateCachePercent => $"{_aggCacheRate:P0}";
 
+    private double _scale = 1.0;
+    public double Scale
+    {
+        get => _scale;
+        set
+        {
+            var clamped = Math.Clamp(value, 0.5, 3.0);
+            if (Math.Abs(_scale - clamped) < 0.001) return;
+            _scale = clamped;
+            OnChanged();
+        }
+    }
+
     public MainViewModel(SessionStore store)
     {
         store.Sessions.CollectionChanged += OnSessionsChanged;

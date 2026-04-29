@@ -26,3 +26,6 @@ Thumbs.db
 # IDE
 .idea/
 *.iml
+
+# Extracted GIF frames (regen via PowerShell script if needed)
+gif-frames/

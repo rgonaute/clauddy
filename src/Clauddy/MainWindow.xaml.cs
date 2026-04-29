@@ -26,6 +26,16 @@ public partial class MainWindow : Window
         _vm = vm;
         DataContext = vm;
         SourceInitialized += OnSourceInitialized;
+        PreviewMouseWheel += OnPreviewMouseWheel;
+    }
+
+    /// <summary>Hold Ctrl + scroll wheel to resize the widget. Saved by App on Scale change.</summary>
+    private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control) return;
+        var step = e.Delta > 0 ? 0.1 : -0.1;
+        _vm.Scale = Math.Round(_vm.Scale + step, 2);
+        e.Handled = true;
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)

@@ -13,6 +13,9 @@
         <Border.Effect>
             <DropShadowEffect Color="Black" BlurRadius="0" ShadowDepth="4" Direction="-45" Opacity="1"/>
         </Border.Effect>
+        <Border.LayoutTransform>
+            <ScaleTransform ScaleX="{Binding Scale}" ScaleY="{Binding Scale}"/>
+        </Border.LayoutTransform>
 
         <StackPanel Width="248" Background="Transparent">
 

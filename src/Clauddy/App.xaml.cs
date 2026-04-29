@@ -61,6 +61,15 @@ public partial class App : System.Windows.Application
 
         _settings = new SettingsStore(SettingsStore.DefaultPath).Load();
         _vm = new MainViewModel(store);
+        _vm.Scale = _settings.Scale > 0 ? _settings.Scale : 1.0;
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.Scale))
+            {
+                _settings.Scale = _vm.Scale;
+                new SettingsStore(SettingsStore.DefaultPath).Save(_settings);
+            }
+        };
         var win = new MainWindow(_vm);
         ApplyWindowPosition(win, _settings);
         win.LocationChanged += (_, _) =>

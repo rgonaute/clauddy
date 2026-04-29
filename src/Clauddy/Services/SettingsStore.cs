@@ -13,6 +13,8 @@ public class Settings
     /// metrics row shows raw token counts. Non-zero: shows "5h: NN%" instead.
     /// </summary>
     public long Quota5hTokens { get; set; }
+    /// <summary>UI scale factor. 1.0 = default size; clamped to [0.5, 3.0]. Persists across restarts.</summary>
+    public double Scale { get; set; } = 1.0;
 }
 
 public class SettingsStore
