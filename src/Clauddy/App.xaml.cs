@@ -232,7 +232,8 @@ public partial class App : System.Windows.Application
     private static string EmbeddedHooksJson()
     {
         var hookCmd = "bash ~/.clauddy/hooks/clauddy-hook.sh";
-        var events = new[] { "SessionStart","UserPromptSubmit","Stop","SubagentStop","Notification","SessionEnd" };
+        // Notification omitted — see clauddy-hook.sh for why we don't act on it.
+        var events = new[] { "SessionStart","UserPromptSubmit","Stop","SubagentStop","SessionEnd" };
         var hooksObj = new System.Text.Json.Nodes.JsonObject();
         foreach (var evt in events)
         {

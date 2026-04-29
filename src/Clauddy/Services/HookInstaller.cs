@@ -9,7 +9,13 @@ public class HookInstaller
 {
     private readonly string _home;
     private readonly string _scriptSource;
-    private static readonly string[] HookEvents =
+    // Events we register on install. Notification is intentionally excluded — see
+    // clauddy-hook.sh for rationale.
+    private static readonly string[] InstallEvents =
+        { "SessionStart", "UserPromptSubmit", "Stop", "SubagentStop", "SessionEnd" };
+    // Events we sweep on uninstall. Includes Notification so legacy installs that
+    // registered it get cleaned up too.
+    private static readonly string[] UninstallEvents =
         { "SessionStart", "UserPromptSubmit", "Stop", "SubagentStop", "Notification", "SessionEnd" };
 
     public HookInstaller(string home, string scriptSource)
@@ -33,8 +39,11 @@ public class HookInstaller
             : new JsonObject();
 
         var hooks = root["hooks"]?.AsObject() ?? new JsonObject();
+        // Drop any stale Clauddy registrations (e.g. legacy Notification hook) before
+        // re-adding the current event set, otherwise reinstalling won't unwire them.
+        foreach (var evt in UninstallEvents) StripClauddyEntries(hooks, evt);
         var hookCommand = $"bash \"{hooksDir.Replace('\\', '/')}/clauddy-hook.sh\"";
-        foreach (var evt in HookEvents)
+        foreach (var evt in InstallEvents)
         {
             hooks[evt] = new JsonArray(new JsonObject
             {
@@ -70,30 +79,7 @@ public class HookInstaller
         var root = JsonNode.Parse(File.ReadAllText(settingsPath))!.AsObject();
         if (root["hooks"] is JsonObject hooks)
         {
-            foreach (var evt in HookEvents.ToList())
-            {
-                if (hooks[evt] is JsonArray arr)
-                {
-                    var clean = new JsonArray();
-                    foreach (var entry in arr)
-                    {
-                        if (entry is not JsonObject obj) { clean.Add(entry?.DeepClone()); continue; }
-                        var inner = obj["hooks"] as JsonArray;
-                        if (inner == null) { clean.Add(obj.DeepClone()); continue; }
-                        var keep = new JsonArray();
-                        foreach (var h in inner)
-                            if (h is JsonObject ho && ho["_clauddy"]?.GetValue<bool>() == true) { /* drop */ }
-                            else keep.Add(h?.DeepClone());
-                        if (keep.Count > 0)
-                        {
-                            obj["hooks"] = keep;
-                            clean.Add(obj.DeepClone());
-                        }
-                    }
-                    if (clean.Count == 0) hooks.Remove(evt);
-                    else hooks[evt] = clean;
-                }
-            }
+            foreach (var evt in UninstallEvents.ToList()) StripClauddyEntries(hooks, evt);
             if (hooks.Count == 0) root.Remove("hooks");
         }
         File.WriteAllText(settingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
@@ -101,5 +87,28 @@ public class HookInstaller
         var hooksDir = Path.Combine(_home, ".clauddy", "hooks");
         try { Directory.Delete(hooksDir, true); } catch { }
         try { File.Delete(Path.Combine(_home, ".clauddy", "installed-hooks.json")); } catch { }
+    }
+
+    private static void StripClauddyEntries(JsonObject hooks, string evt)
+    {
+        if (hooks[evt] is not JsonArray arr) return;
+        var clean = new JsonArray();
+        foreach (var entry in arr)
+        {
+            if (entry is not JsonObject obj) { clean.Add(entry?.DeepClone()); continue; }
+            var inner = obj["hooks"] as JsonArray;
+            if (inner == null) { clean.Add(obj.DeepClone()); continue; }
+            var keep = new JsonArray();
+            foreach (var h in inner)
+                if (h is JsonObject ho && ho["_clauddy"]?.GetValue<bool>() == true) { /* drop */ }
+                else keep.Add(h?.DeepClone());
+            if (keep.Count > 0)
+            {
+                obj["hooks"] = keep;
+                clean.Add(obj.DeepClone());
+            }
+        }
+        if (clean.Count == 0) hooks.Remove(evt);
+        else hooks[evt] = clean;
     }
 }

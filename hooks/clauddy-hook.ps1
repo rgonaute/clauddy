@@ -16,13 +16,13 @@ $sessionId = $payload.session_id
 $cwd = $payload.cwd
 if (-not $event -or -not $sessionId) { exit 0 }
 
+# Notification is intentionally not mapped — see clauddy-hook.sh for rationale.
 $state = $null; $action = 'update'
 switch ($event) {
   'SessionStart'     { $state = 'chilling' }
   'UserPromptSubmit' { $state = 'working' }
   'Stop'             { $state = 'chilling' }
   'SubagentStop'     { $state = 'chilling' }
-  'Notification'     { $state = 'alerting' }
   'SessionEnd'       { $action = 'remove' }
   default            { exit 0 }
 }

@@ -43,8 +43,29 @@ public class HookInstallerTests : IDisposable
         hooks.TryGetProperty("UserPromptSubmit", out _).Should().BeTrue();
         hooks.TryGetProperty("Stop", out _).Should().BeTrue();
         hooks.TryGetProperty("SubagentStop", out _).Should().BeTrue();
-        hooks.TryGetProperty("Notification", out _).Should().BeTrue();
         hooks.TryGetProperty("SessionEnd", out _).Should().BeTrue();
+        // Notification is intentionally NOT registered (would cause sticky alerting).
+        hooks.TryGetProperty("Notification", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Install_strips_legacy_Notification_clauddy_entry_from_existing_settings()
+    {
+        // Simulate an old install that wrote a Notification hook; reinstall should drop it.
+        var path = Path.Combine(_home, ".claude", "settings.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """
+        {
+          "hooks": {
+            "Notification": [
+              {"matcher":"*","hooks":[{"type":"command","command":"old","_clauddy":true}]}
+            ]
+          }
+        }
+        """);
+        new HookInstaller(_home, _scriptSource).InstallWindows();
+        var json = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
+        json.GetProperty("hooks").TryGetProperty("Notification", out _).Should().BeFalse();
     }
 
     [Fact]

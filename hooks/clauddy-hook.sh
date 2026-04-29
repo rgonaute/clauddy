@@ -20,13 +20,15 @@ cwd=$(echo "$payload" | jq -r '.cwd // empty')
 transcript_path=$(echo "$payload" | jq -r '.transcript_path // empty')
 [ -n "$event" ] && [ -n "$session_id" ] || exit 0
 
-# Map event → state/action
+# Map event → state/action. Notification is intentionally NOT mapped: Claude Code
+# fires it for idle nudges and completion pings, not just permission prompts, so
+# it produces sticky false-positive "alerting" states. Stop/UserPromptSubmit are
+# reliable enough on their own.
 state=""; action="update"
 case "$event" in
   SessionStart)        state="chilling" ;;
   UserPromptSubmit)    state="working" ;;
   Stop|SubagentStop)   state="chilling" ;;
-  Notification)        state="alerting" ;;
   SessionEnd)          action="remove" ;;
   *) exit 0 ;;
 esac
