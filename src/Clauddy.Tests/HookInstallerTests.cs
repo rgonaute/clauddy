@@ -48,6 +48,33 @@ public class HookInstallerTests : IDisposable
     }
 
     [Fact]
+    public void Install_preserves_user_hooks_for_the_same_event()
+    {
+        // The user has a non-Clauddy SessionStart hook of their own. Install must
+        // append the Clauddy entry alongside it, not replace the array wholesale.
+        var path = Path.Combine(_home, ".claude", "settings.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """
+        {
+          "hooks": {
+            "SessionStart": [
+              {"matcher":"*","hooks":[{"type":"command","command":"my-own-tool"}]}
+            ]
+          }
+        }
+        """);
+        new HookInstaller(_home, _scriptSource).InstallWindows();
+        var arr = JsonDocument.Parse(File.ReadAllText(path)).RootElement
+            .GetProperty("hooks").GetProperty("SessionStart");
+        arr.GetArrayLength().Should().Be(2);
+        var commands = arr.EnumerateArray()
+            .Select(e => e.GetProperty("hooks")[0].GetProperty("command").GetString())
+            .ToList();
+        commands.Should().Contain(c => c!.Contains("my-own-tool"));
+        commands.Should().Contain(c => c!.Contains("clauddy-hook.sh"));
+    }
+
+    [Fact]
     public void Install_replaces_legacy_clauddy_Notification_entry_with_current_command()
     {
         // Simulate an old install that wrote a stale Notification hook; reinstall

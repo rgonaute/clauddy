@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Clauddy.Services;
 
@@ -12,7 +12,7 @@ public class LifecycleManager
     /// <param name="isAlive">
     /// Optional process-liveness probe. Given a PID, returns true iff the process is
     /// still running. Pass null in tests; production wires Default() which uses
-    /// System.Diagnostics.Process. Sessions whose Pid is 0 are skipped (no probe).
+    /// kernel32 OpenProcess. Sessions whose Pid is 0 are skipped (no probe).
     /// </param>
     public LifecycleManager(SessionStore store, Func<DateTimeOffset> clock, TimeSpan maxAge,
         Func<int, bool>? isAlive = null)
@@ -20,20 +20,29 @@ public class LifecycleManager
         _store = store; _clock = clock; _maxAge = maxAge; _isAlive = isAlive;
     }
 
+    // Returns: true if alive OR opaque (can't confirm); false only when we know it exited.
+    // Opaque PIDs are normal — MSYS/Git Bash sends $PPID=1, WSL sends a Linux PID, neither
+    // is a Windows process. SessionEnd hook + 30-min stale GC clean those up instead.
     public static Func<int, bool> DefaultIsAlive => pid =>
     {
-        if (pid <= 0) return true;  // unknown — treat as alive
+        if (pid <= 0) return true;
+        var h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)pid);
+        if (h == IntPtr.Zero) return true;
         try
         {
-            var p = Process.GetProcessById(pid);
-            return !p.HasExited;
+            return GetExitCodeProcess(h, out var code) && code == STILL_ACTIVE;
         }
-        // PID isn't a Windows-visible process — e.g. MSYS/Git Bash sends $PPID=1, WSL
-        // sends a Linux PID. Treat as opaque/alive: we can't confirm death, so let
-        // SessionEnd + 30-min stale GC handle cleanup instead of nuking on first tick.
-        catch (ArgumentException) { return true; }
-        catch { return false; }
+        finally { CloseHandle(h); }
     };
+
+    private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+    private const uint STILL_ACTIVE = 259;
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
 
     public void Tick()
     {

@@ -12,13 +12,11 @@ fi
 endpoint=$(cat "$endpoint_file")
 [ -n "$endpoint" ] || exit 0
 
-# Read hook payload
+# Read hook payload. One jq call extracts all fields (TSV-separated). @tsv escapes
+# newlines/tabs in values so single-line `read` is safe.
 payload=$(cat)
-event=$(echo "$payload" | jq -r '.hook_event_name // empty')
-session_id=$(echo "$payload" | jq -r '.session_id // empty')
-cwd=$(echo "$payload" | jq -r '.cwd // empty')
-transcript_path=$(echo "$payload" | jq -r '.transcript_path // empty')
-message=$(echo "$payload" | jq -r '.message // empty')
+IFS=$'\t' read -r event session_id cwd transcript_path message \
+  <<< "$(jq -r '[.hook_event_name, .session_id, .cwd, .transcript_path, .message] | map(. // "") | @tsv' <<< "$payload")"
 [ -n "$event" ] && [ -n "$session_id" ] || exit 0
 
 # Map event → state/action. For Notification we filter on the message text:
@@ -31,10 +29,8 @@ case "$event" in
   UserPromptSubmit)    state="working" ;;
   Stop|SubagentStop)   state="chilling" ;;
   Notification)
-    case "$message" in
-      *permission*|*Permission*) state="alerting" ;;
-      *) exit 0 ;;
-    esac ;;
+    [[ "${message,,}" == *permission* ]] || exit 0
+    state="alerting" ;;
   SessionEnd)          action="remove" ;;
   *) exit 0 ;;
 esac

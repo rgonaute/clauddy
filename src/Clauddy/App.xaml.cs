@@ -134,10 +134,9 @@ public partial class App : System.Windows.Application
     }
 
     private static bool IsOnAnyScreen(double x, double y) =>
-        x >= SystemParameters.VirtualScreenLeft &&
-        y >= SystemParameters.VirtualScreenTop &&
-        x <  SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth &&
-        y <  SystemParameters.VirtualScreenTop  + SystemParameters.VirtualScreenHeight;
+        new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                 SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight)
+            .Contains(new Point(x, y));
 
     protected override void OnExit(ExitEventArgs e)
     {
@@ -235,26 +234,9 @@ public partial class App : System.Windows.Application
     private static string EmbeddedHooksJson()
     {
         var hookCmd = "bash ~/.clauddy/hooks/clauddy-hook.sh";
-        // Notification is registered; the hook script filters by message so only
-        // permission prompts flip the pill to alerting.
-        var events = new[] { "SessionStart","UserPromptSubmit","Stop","SubagentStop","Notification","SessionEnd" };
         var hooksObj = new System.Text.Json.Nodes.JsonObject();
-        foreach (var evt in events)
-        {
-            hooksObj[evt] = new System.Text.Json.Nodes.JsonArray(
-                new System.Text.Json.Nodes.JsonObject
-                {
-                    ["matcher"] = "*",
-                    ["hooks"] = new System.Text.Json.Nodes.JsonArray(
-                        new System.Text.Json.Nodes.JsonObject
-                        {
-                            ["type"] = "command",
-                            ["command"] = hookCmd,
-                            ["_clauddy"] = true
-                        })
-                });
-        }
-        var root = new System.Text.Json.Nodes.JsonObject { ["hooks"] = hooksObj };
-        return root.ToJsonString();
+        foreach (var evt in HookInstaller.HookEvents)
+            hooksObj[evt] = new System.Text.Json.Nodes.JsonArray(HookInstaller.BuildHookEntry(hookCmd));
+        return new System.Text.Json.Nodes.JsonObject { ["hooks"] = hooksObj }.ToJsonString();
     }
 }

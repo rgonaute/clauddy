@@ -9,19 +9,27 @@ public class HookInstaller
 {
     private readonly string _home;
     private readonly string _scriptSource;
-    // Events we register on install. The hook script filters Notification on its
-    // own (only permission-prompt messages flip alerting), so we register it.
-    private static readonly string[] InstallEvents =
-        { "SessionStart", "UserPromptSubmit", "Stop", "SubagentStop", "Notification", "SessionEnd" };
-    // Events we sweep on uninstall — same set; kept separate so install/uninstall
-    // can diverge if needed without surprising legacy users.
-    private static readonly string[] UninstallEvents =
+    internal static readonly string[] HookEvents =
         { "SessionStart", "UserPromptSubmit", "Stop", "SubagentStop", "Notification", "SessionEnd" };
 
     public HookInstaller(string home, string scriptSource)
     {
         _home = home; _scriptSource = scriptSource;
     }
+
+    /// <summary>Builds the per-event Clauddy hook entry, marked with `_clauddy: true`
+    /// so we can find and remove our entries on reinstall/uninstall without disturbing
+    /// the user's other hooks.</summary>
+    internal static JsonObject BuildHookEntry(string command) => new()
+    {
+        ["matcher"] = "*",
+        ["hooks"] = new JsonArray(new JsonObject
+        {
+            ["type"] = "command",
+            ["command"] = command,
+            ["_clauddy"] = true
+        })
+    };
 
     public void InstallWindows()
     {
@@ -39,22 +47,15 @@ public class HookInstaller
             : new JsonObject();
 
         var hooks = root["hooks"]?.AsObject() ?? new JsonObject();
-        // Drop any stale Clauddy registrations (e.g. legacy Notification hook) before
-        // re-adding the current event set, otherwise reinstalling won't unwire them.
-        foreach (var evt in UninstallEvents) StripClauddyEntries(hooks, evt);
         var hookCommand = $"bash \"{hooksDir.Replace('\\', '/')}/clauddy-hook.sh\"";
-        foreach (var evt in InstallEvents)
+        foreach (var evt in HookEvents)
         {
-            hooks[evt] = new JsonArray(new JsonObject
-            {
-                ["matcher"] = "*",
-                ["hooks"] = new JsonArray(new JsonObject
-                {
-                    ["type"] = "command",
-                    ["command"] = hookCommand,
-                    ["_clauddy"] = true
-                })
-            });
+            // Strip stale Clauddy entries first, then append — preserves any non-Clauddy
+            // hooks the user has registered for the same events.
+            StripClauddyEntries(hooks, evt);
+            var arr = hooks[evt] as JsonArray ?? new JsonArray();
+            arr.Add(BuildHookEntry(hookCommand));
+            hooks[evt] = arr;
         }
         root["hooks"] = hooks;
         File.WriteAllText(settingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
@@ -79,7 +80,7 @@ public class HookInstaller
         var root = JsonNode.Parse(File.ReadAllText(settingsPath))!.AsObject();
         if (root["hooks"] is JsonObject hooks)
         {
-            foreach (var evt in UninstallEvents.ToList()) StripClauddyEntries(hooks, evt);
+            foreach (var evt in HookEvents) StripClauddyEntries(hooks, evt);
             if (hooks.Count == 0) root.Remove("hooks");
         }
         File.WriteAllText(settingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));

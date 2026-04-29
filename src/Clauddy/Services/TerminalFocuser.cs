@@ -22,6 +22,7 @@ public class TerminalFocuser
     public bool TryFocus(int pid)
     {
         if (pid <= 0) return false;
+        var parents = SnapshotParents();
         var current = pid;
         for (int hop = 0; hop < MaxAncestors && current > 0; hop++)
         {
@@ -36,30 +37,26 @@ public class TerminalFocuser
             }
             catch { /* process may have exited; try the parent */ }
 
-            var parent = GetParentPid(current);
-            if (parent == current || parent == 0) break;
+            if (!parents.TryGetValue(current, out var parent) || parent == current || parent == 0) break;
             current = parent;
         }
         return false;
     }
 
-    // Walks the toolhelp snapshot to find ParentProcessId for the given PID.
-    // Replaces a WMI/System.Management dependency that pulled in extra DLLs.
-    private static int GetParentPid(int pid)
+    private static Dictionary<int, int> SnapshotParents()
     {
+        var map = new Dictionary<int, int>();
         var snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if (snap == new IntPtr(-1)) return 0;
+        if (snap == new IntPtr(-1)) return map;
         try
         {
             var pe = new PROCESSENTRY32 { dwSize = (uint)Marshal.SizeOf<PROCESSENTRY32>() };
-            if (!Process32First(snap, ref pe)) return 0;
-            do
-            {
-                if (pe.th32ProcessID == (uint)pid) return (int)pe.th32ParentProcessID;
-            } while (Process32Next(snap, ref pe));
+            if (!Process32First(snap, ref pe)) return map;
+            do { map[(int)pe.th32ProcessID] = (int)pe.th32ParentProcessID; }
+            while (Process32Next(snap, ref pe));
         }
         finally { CloseHandle(snap); }
-        return 0;
+        return map;
     }
 
     private const uint TH32CS_SNAPPROCESS = 0x00000002;
