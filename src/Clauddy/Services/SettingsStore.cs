@@ -1,5 +1,7 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Clauddy.Models;
 
 namespace Clauddy.Services;
 
@@ -8,6 +10,12 @@ public class Settings
     public double? WindowX { get; set; }
     public double? WindowY { get; set; }
     public bool RunAtLogin { get; set; }
+    /// <summary>
+    /// Anthropic subscription tier. Used by the Calibrate dialog to suggest defaults
+    /// when no /usage percentage is entered. Old settings files default to Custom.
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public Plan Plan { get; set; } = Plan.Custom;
     /// <summary>
     /// 5-hour token cap, back-solved from a /usage calibration. 0 = unset, raw counts shown.
     /// Non-zero: primary metrics line shows "5h: NN%" against this cap.

@@ -1,3 +1,4 @@
+using Clauddy.Models;
 using Clauddy.Views;
 using FluentAssertions;
 using Xunit;
@@ -29,14 +30,56 @@ public class CalibrateDialogTests
     [Fact]
     public void BackSolve_returns_zero_when_no_tokens_logged_yet()
     {
-        // Without a usage history we can't back-solve a cap.
         CalibrateDialog.BackSolve("25", 0).Should().Be(0);
     }
 
     [Fact]
     public void BackSolve_clamps_pct_above_100()
     {
-        // 150% would invent a cap smaller than current usage — clamp to 100.
         CalibrateDialog.BackSolve("150", 1_000_000).Should().Be(1_000_000);
+    }
+
+    [Fact]
+    public void ResolveCap_prefers_pct_over_plan_default()
+    {
+        // /usage entry overrides the plan default — user wanted to fine-tune.
+        var cap = CalibrateDialog.ResolveCap("50", currentTokens: 1_000_000, planDefault: 999_999);
+        cap.Should().Be(2_000_000);
+    }
+
+    [Fact]
+    public void ResolveCap_falls_back_to_plan_default_when_pct_blank()
+    {
+        var cap = CalibrateDialog.ResolveCap("", currentTokens: 1_000_000, planDefault: 5_000_000);
+        cap.Should().Be(5_000_000);
+    }
+
+    [Fact]
+    public void ResolveCap_returns_zero_when_neither_input_is_set()
+    {
+        // Custom plan + empty pct = no calibration; widget falls back to raw tokens.
+        var cap = CalibrateDialog.ResolveCap("", currentTokens: 1_000_000, planDefault: 0);
+        cap.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(Plan.Free,    5_000_000L,    80_000_000L)]
+    [InlineData(Plan.Pro,    21_000_000L,   380_000_000L)]
+    [InlineData(Plan.Max5x, 106_000_000L, 1_900_000_000L)]
+    [InlineData(Plan.Max20x, 424_000_000L, 7_600_000_000L)]
+    [InlineData(Plan.Team,  106_000_000L, 1_900_000_000L)]
+    public void PlanDefaults_returns_known_caps(Plan plan, long expected5h, long expected7d)
+    {
+        var caps = PlanDefaults.For(plan);
+        caps.Tokens5h.Should().Be(expected5h);
+        caps.Tokens7d.Should().Be(expected7d);
+    }
+
+    [Fact]
+    public void PlanDefaults_Custom_returns_zeros()
+    {
+        var caps = PlanDefaults.For(Plan.Custom);
+        caps.Tokens5h.Should().Be(0);
+        caps.Tokens7d.Should().Be(0);
     }
 }

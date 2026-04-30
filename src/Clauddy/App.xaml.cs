@@ -181,14 +181,15 @@ public partial class App : System.Windows.Application
             try
             {
                 var snapshot = UsageStatsService.Default().Compute(DateTimeOffset.UtcNow);
-                var dlg = new CalibrateDialog(snapshot, _settings.Quota5hTokens, _settings.Quota7dTokens);
+                var dlg = new CalibrateDialog(snapshot, _settings.Plan, _settings.Quota5hTokens, _settings.Quota7dTokens);
                 if (dlg.ShowDialog() != true) return;
 
+                _settings.Plan = dlg.SelectedPlan;
                 _settings.Quota5hTokens = dlg.Quota5hTokens;
                 _settings.Quota7dTokens = dlg.Quota7dTokens;
                 new SettingsStore(SettingsStore.DefaultPath).Save(_settings);
                 _vm?.UpdateUsage(snapshot, _settings.Quota5hTokens, _settings.Quota7dTokens);
-                _log?.Info($"Calibrated quotas: 5h={_settings.Quota5hTokens}, 7d={_settings.Quota7dTokens}");
+                _log?.Info($"Calibrated: plan={_settings.Plan}, 5h={_settings.Quota5hTokens}, 7d={_settings.Quota7dTokens}");
             }
             catch (Exception ex)
             {
