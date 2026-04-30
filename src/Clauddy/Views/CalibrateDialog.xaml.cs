@@ -22,18 +22,18 @@ public partial class CalibrateDialog : System.Windows.Window
         // Pre-fill with what Clauddy currently displays so users can compare against
         // /usage and tweak only the numbers that drift.
         if (currentQuota5h > 0)
-            Pct5h.Text = Math.Round((double)snapshot.Last5HoursTokens / currentQuota5h * 100).ToString();
+            Pct5h.Text = Math.Round((double)snapshot.CurrentBucketTokens / currentQuota5h * 100).ToString();
         if (currentQuota7d > 0)
             Pct7d.Text = Math.Round((double)snapshot.Last7DaysTokens / currentQuota7d * 100).ToString();
 
         CurrentSnapshot.Text =
-            $"Snapshot: 5h = {MainViewModel.FormatTokens(snapshot.Last5HoursTokens)} tokens, " +
+            $"Snapshot: 5h = {MainViewModel.FormatTokens(snapshot.CurrentBucketTokens)} tokens, " +
             $"7d = {MainViewModel.FormatTokens(snapshot.Last7DaysTokens)} tokens.";
     }
 
     private void SaveBtn_Click(object sender, System.Windows.RoutedEventArgs e)
     {
-        Quota5hTokens = BackSolve(Pct5h.Text, _snapshot.Last5HoursTokens);
+        Quota5hTokens = BackSolve(Pct5h.Text, _snapshot.CurrentBucketTokens);
         Quota7dTokens = BackSolve(Pct7d.Text, _snapshot.Last7DaysTokens);
         DialogResult = true; Close();
     }

@@ -101,8 +101,8 @@ public class MainViewModel : INotifyPropertyChanged
     public void UpdateUsage(UsageStats stats, long quota5h, long quota7d)
     {
         Window5hDisplay = quota5h > 0
-            ? $"5h: {(double)stats.Last5HoursTokens / quota5h:P0}"
-            : $"5h: {FormatTokens(stats.Last5HoursTokens)}";
+            ? $"5h: {(double)stats.CurrentBucketTokens / quota5h:P0}"
+            : $"5h: {FormatTokens(stats.CurrentBucketTokens)}";
         Window7dDisplay = quota7d > 0
             ? $"Week: {(double)stats.Last7DaysTokens / quota7d:P0}"
             : $"Week: {FormatTokens(stats.Last7DaysTokens)}";
@@ -110,10 +110,10 @@ public class MainViewModel : INotifyPropertyChanged
         // When calibrated, primary line shows %; raw counts demote to a subtitle.
         // When uncalibrated, primary already shows raw counts so the subtitle stays empty.
         _rawSubtitle = (quota5h > 0 || quota7d > 0)
-            ? $"5h {FormatTokens(stats.Last5HoursTokens)} · 7d {FormatTokens(stats.Last7DaysTokens)}"
+            ? $"5h {FormatTokens(stats.CurrentBucketTokens)} · 7d {FormatTokens(stats.Last7DaysTokens)}"
             : "";
 
-        AggregateCacheRate = stats.Last5HoursCacheRate;
+        AggregateCacheRate = stats.CurrentBucketCacheRate;
         OnChanged(nameof(SubtitleDisplay));
     }
 
