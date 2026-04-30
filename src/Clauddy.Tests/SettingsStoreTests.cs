@@ -22,11 +22,14 @@ public class SettingsStoreTests : IDisposable
     public void Save_then_load_roundtrips()
     {
         var store = new SettingsStore(_path);
-        store.Save(new Settings { WindowX = 100, WindowY = 200, RunAtLogin = true });
+        store.Save(new Settings { WindowX = 100, WindowY = 200, RunAtLogin = true,
+                                  Quota5hTokens = 440_000, Quota7dTokens = 5_000_000 });
         var s = store.Load();
         s.WindowX.Should().Be(100);
         s.WindowY.Should().Be(200);
         s.RunAtLogin.Should().BeTrue();
+        s.Quota5hTokens.Should().Be(440_000);
+        s.Quota7dTokens.Should().Be(5_000_000);
     }
 
     [Fact]

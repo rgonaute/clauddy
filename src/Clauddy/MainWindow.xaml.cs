@@ -20,6 +20,13 @@ public partial class MainWindow : Window
     private readonly MainViewModel _vm;
     private readonly TerminalFocuser _focuser = new();
 
+    /// <summary>
+    /// Optional factory that builds a fresh ContextMenu — wired by App.xaml.cs to mirror
+    /// the tray menu so the user can quit/calibrate from the widget itself if the system
+    /// tray icon ever fails to register.
+    /// </summary>
+    public Func<ContextMenu>? ContextMenuFactory { get; set; }
+
     public MainWindow(MainViewModel vm)
     {
         InitializeComponent();
@@ -48,6 +55,15 @@ public partial class MainWindow : Window
     private void DragArea_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left) DragMove();
+    }
+
+    private void Root_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        var menu = ContextMenuFactory?.Invoke();
+        if (menu == null) return;
+        menu.PlacementTarget = (UIElement)sender;
+        menu.IsOpen = true;
+        e.Handled = true;
     }
 
     private void Pill_Click(object sender, RoutedEventArgs e)

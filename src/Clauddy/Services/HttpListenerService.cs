@@ -14,6 +14,8 @@ public class HttpListenerService
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
     public Action<Action>? Marshal { get; set; } = a => a();
+    /// <summary>Optional sink for hook-arrival debug lines.</summary>
+    public Action<string>? Log { get; set; }
 
     public HttpListenerService(SessionStore store, LabelResolver resolver)
     {
@@ -125,11 +127,17 @@ public class HttpListenerService
 
     private void Apply(Payload p)
     {
-        if (p.Action == "remove") { _store.Remove(p.SessionId); return; }
+        if (p.Action == "remove")
+        {
+            _store.Remove(p.SessionId);
+            Log?.Invoke($"hook remove sid={p.SessionId[..Math.Min(8, p.SessionId.Length)]}");
+            return;
+        }
         var label = _resolver.Resolve(p.Cwd, p.Label);
         _store.Upsert(new Session(
             p.SessionId, label, p.State!.Value, p.Cwd, DateTimeOffset.UtcNow, "http",
             p.Tokens, p.InputTokens, p.OutputTokens, p.CacheCreationTokens, p.CacheReadTokens, p.Pid));
+        Log?.Invoke($"hook upsert sid={p.SessionId[..Math.Min(8, p.SessionId.Length)]} label={label} state={p.State} pid={p.Pid} (sessions now: {_store.Sessions.Count})");
     }
 
     private static int GetEphemeralPort()

@@ -9,10 +9,15 @@ public class Settings
     public double? WindowY { get; set; }
     public bool RunAtLogin { get; set; }
     /// <summary>
-    /// User-supplied 5-hour token quota from their Anthropic plan. 0 = unset:
-    /// metrics row shows raw token counts. Non-zero: shows "5h: NN%" instead.
+    /// 5-hour token cap, back-solved from a /usage calibration. 0 = unset, raw counts shown.
+    /// Non-zero: primary metrics line shows "5h: NN%" against this cap.
     /// </summary>
     public long Quota5hTokens { get; set; }
+    /// <summary>
+    /// 7-day token cap, back-solved from a /usage calibration. 0 = unset, raw counts shown.
+    /// Non-zero: primary metrics line shows "Week: NN%" against this cap.
+    /// </summary>
+    public long Quota7dTokens { get; set; }
     /// <summary>UI scale factor. 1.0 = default size; clamped to [0.5, 3.0]. Persists across restarts.</summary>
     public double Scale { get; set; } = 1.0;
 }

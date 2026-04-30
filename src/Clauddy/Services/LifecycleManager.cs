@@ -20,14 +20,17 @@ public class LifecycleManager
         _store = store; _clock = clock; _maxAge = maxAge; _isAlive = isAlive;
     }
 
-    // Returns: true if alive OR opaque (can't confirm); false only when we know it exited.
-    // Opaque PIDs are normal — MSYS/Git Bash sends $PPID=1, WSL sends a Linux PID, neither
-    // is a Windows process. SessionEnd hook + 30-min stale GC clean those up instead.
+    // Returns: true if alive OR opaque (can't confirm); false only when we positively
+    // confirmed the process exited. OpenProcess failure (any error code) is "opaque" —
+    // INVALID_PARAMETER is returned both for "PID never existed" (e.g. Git Bash sends
+    // $PPID=1 from the MSYS pseudo-process table) AND for "PID existed and is gone now",
+    // and we can't tell which. Mapping it to "dead" mass-removes legitimate Git Bash
+    // sessions ~30s after their last hook. Stale GC + SessionEnd handle real cleanup.
     public static Func<int, bool> DefaultIsAlive => pid =>
     {
         if (pid <= 0) return true;
         var h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)pid);
-        if (h == IntPtr.Zero) return true;
+        if (h == IntPtr.Zero) return true; // opaque — assume alive, defer to stale GC
         try
         {
             return GetExitCodeProcess(h, out var code) && code == STILL_ACTIVE;

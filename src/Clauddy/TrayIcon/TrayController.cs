@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using Clauddy.Logging;
 using Clauddy.Services;
 using H.NotifyIcon;
 
@@ -12,12 +13,17 @@ public class TrayController
     private readonly Window _window;
     private readonly AutoStartService _autoStart;
     private readonly Func<Task> _onManageHooks;
+    private readonly Func<Task> _onCalibrate;
+    private readonly FileLogger? _log;
 
-    public TrayController(Window window, AutoStartService autoStart, Func<Task> onManageHooks)
+    public TrayController(Window window, AutoStartService autoStart,
+        Func<Task> onManageHooks, Func<Task> onCalibrate, FileLogger? log = null)
     {
         _window = window;
         _autoStart = autoStart;
         _onManageHooks = onManageHooks;
+        _onCalibrate = onCalibrate;
+        _log = log;
 
         _icon = new TaskbarIcon
         {
@@ -26,9 +32,27 @@ public class TrayController
             ToolTipText = "Clauddy"
         };
         _icon.ContextMenu = BuildMenu();
+
+        // H.NotifyIcon registers the Win32 Shell_NotifyIcon hook lazily — when constructed
+        // outside a XAML visual tree it can fail to fire Loaded, leaving the icon invisible.
+        // ForceCreate is the documented escape hatch; "false" keeps Efficiency Mode off.
+        try
+        {
+            if (!_icon.IsCreated) _icon.ForceCreate(enablesEfficiencyMode: false);
+            _log?.Info($"Tray icon: IsCreated={_icon.IsCreated}");
+        }
+        catch (Exception ex)
+        {
+            _log?.Error($"Tray icon ForceCreate failed: {ex}");
+        }
     }
 
-    private ContextMenu BuildMenu()
+    /// <summary>
+    /// Builds a fresh context menu with the same items as the tray menu.
+    /// Used both by the tray icon and by the widget's right-click fallback,
+    /// so the user can quit/calibrate even if the system tray flakes out.
+    /// </summary>
+    public ContextMenu BuildMenu()
     {
         var menu = new ContextMenu();
 
@@ -63,6 +87,10 @@ public class TrayController
         var manage = new System.Windows.Controls.MenuItem { Header = "Manage hooks…" };
         manage.Click += async (_, _) => await _onManageHooks();
         menu.Items.Add(manage);
+
+        var calibrate = new System.Windows.Controls.MenuItem { Header = "Calibrate /usage…" };
+        calibrate.Click += async (_, _) => await _onCalibrate();
+        menu.Items.Add(calibrate);
 
         var about = new System.Windows.Controls.MenuItem { Header = "About" };
         about.Click += (_, _) => System.Windows.MessageBox.Show(

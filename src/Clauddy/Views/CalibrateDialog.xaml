@@ -1,0 +1,55 @@
+<Window x:Class="Clauddy.Views.CalibrateDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Clauddy — Calibrate /usage"
+        Width="460" Height="360" WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+    <DockPanel Margin="16">
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,10">
+            Type <Run FontWeight="Bold">/usage</Run> in any Claude Code session.
+            You'll see two percentages — a 5-hour and a weekly. Enter them below
+            and Clauddy will line up its display with those numbers.
+        </TextBlock>
+
+        <Border DockPanel.Dock="Top" BorderBrush="#ddd" BorderThickness="1" Padding="10" Margin="0,0,0,8">
+            <StackPanel>
+                <TextBlock Text="Right now /usage shows…" FontWeight="Bold" Margin="0,0,0,8"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="5-hour:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" x:Name="Pct5h" Margin="0,2"
+                             PreviewTextInput="Pct_PreviewTextInput"
+                             ToolTip="Percentage 1–100. Empty clears."/>
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="%" VerticalAlignment="Center" Margin="4,0,0,0"/>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Weekly:" VerticalAlignment="Center" Margin="0,6,0,0"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="Pct7d" Margin="0,8,0,0"
+                             PreviewTextInput="Pct_PreviewTextInput"
+                             ToolTip="Percentage 1–100. Empty clears."/>
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="%" VerticalAlignment="Center" Margin="4,8,0,0"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,0,0,8">
+            Tip: leave a field empty to fall back to raw token counts for that window.
+            Recalibrate any time when /usage and Clauddy drift apart.
+        </TextBlock>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Bottom">
+            <Button x:Name="CancelBtn" Content="Cancel" Width="90" Margin="0,0,8,0" Click="CancelBtn_Click"/>
+            <Button x:Name="SaveBtn" Content="Save" Width="90" IsDefault="True" Click="SaveBtn_Click"/>
+        </StackPanel>
+
+        <TextBlock x:Name="CurrentSnapshot" TextWrapping="Wrap" Foreground="#555" FontSize="11" Margin="0,8,0,0"/>
+    </DockPanel>
+</Window>

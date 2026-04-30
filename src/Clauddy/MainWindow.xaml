@@ -9,7 +9,9 @@
         SizeToContent="WidthAndHeight" ResizeMode="NoResize">
 
     <Border Background="#0d0d12" BorderBrush="Black" BorderThickness="3" Padding="8"
-            Cursor="SizeAll" MouseLeftButtonDown="DragArea_MouseLeftButtonDown">
+            Cursor="SizeAll"
+            MouseLeftButtonDown="DragArea_MouseLeftButtonDown"
+            MouseRightButtonUp="Root_MouseRightButtonUp">
         <Border.Effect>
             <DropShadowEffect Color="Black" BlurRadius="0" ShadowDepth="4" Direction="-45" Opacity="1"/>
         </Border.Effect>
@@ -62,19 +64,15 @@
                        RenderOptions.BitmapScalingMode="NearestNeighbor"/>
             </Border>
 
-            <!-- Bottom: metrics -->
+            <!-- Bottom: metrics. Primary line carries % when calibrated, raw tokens otherwise. -->
             <StackPanel Margin="0,8,0,0">
-                <TextBlock FontFamily="Courier New" FontSize="11" Foreground="#e5e7eb" HorizontalAlignment="Center">
+                <TextBlock FontFamily="Courier New" FontSize="13" FontWeight="Bold" Foreground="#f3f4f6" HorizontalAlignment="Center">
                     <Run Text="{Binding Window5hDisplay, Mode=OneWay}"/>
-                    <Run Text=" · "/>
+                    <Run Text="  ·  "/>
                     <Run Text="{Binding Window7dDisplay, Mode=OneWay}"/>
                 </TextBlock>
-                <TextBlock FontFamily="Courier New" FontSize="10" Foreground="#9ca3af" HorizontalAlignment="Center" Margin="0,2,0,0">
-                    <Run Text="cache "/>
-                    <Run Text="{Binding AggregateCachePercent, Mode=OneWay}"/>
-                    <Run Text=" · this: "/>
-                    <Run Text="{Binding SelectedTokensDisplay, Mode=OneWay}"/>
-                </TextBlock>
+                <TextBlock FontFamily="Courier New" FontSize="10" Foreground="#9ca3af" HorizontalAlignment="Center" Margin="0,2,0,0"
+                           Text="{Binding SubtitleDisplay, Mode=OneWay}"/>
             </StackPanel>
 
         </StackPanel>

@@ -59,12 +59,14 @@ public class LifecycleManagerTests
     }
 
     [Fact]
-    public void DefaultIsAlive_treats_unknown_pid_as_alive()
+    public void DefaultIsAlive_treats_unopenable_pid_as_alive()
     {
-        // MSYS/Git Bash sends $PPID=1, WSL sends a Linux PID — neither maps to a
-        // Windows process, so GetProcessById throws ArgumentException. We must treat
-        // those as opaque/alive, not dead, or sessions disappear within 30s of arriving.
+        // OpenProcess returns ERROR_INVALID_PARAMETER both for "PID never existed" (Git Bash
+        // sends $PPID=1 from MSYS pseudo-pids) AND "PID existed and just died" — we can't
+        // tell which. Mapping that to "dead" mass-removes Git Bash sessions ~30s after their
+        // last hook. Stale GC handles the actual-cleanup case instead.
         LifecycleManager.DefaultIsAlive(int.MaxValue).Should().BeTrue();
+        LifecycleManager.DefaultIsAlive(1).Should().BeTrue();
     }
 
     [Fact]

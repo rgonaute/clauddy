@@ -47,7 +47,11 @@ public partial class App : System.Windows.Application
 
         var store = new SessionStore();
         var resolver = new LabelResolver(new GitProbe());
-        _http = new HttpListenerService(store, resolver) { Marshal = a => Dispatcher.Invoke(a) };
+        _http = new HttpListenerService(store, resolver)
+        {
+            Marshal = a => Dispatcher.Invoke(a),
+            Log = msg => _log?.Info(msg)
+        };
         var url = _http.Start();
 
         _endpoint = new EndpointFile(EndpointFile.DefaultPath);
@@ -90,7 +94,13 @@ public partial class App : System.Windows.Application
         };
         var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!;
         var autoStart = AutoStartService.Default(exePath);
-        _tray = new TrayController(win, autoStart, () => Task.Run(() => RunHookSetupAsync()));
+        _tray = new TrayController(win, autoStart,
+            onManageHooks: () => Task.Run(() => RunHookSetupAsync()),
+            onCalibrate:   () => Task.Run(() => RunCalibrateAsync()),
+            log: _log);
+        // Right-click on the widget itself opens the same menu as the tray icon —
+        // a recovery path for when the system tray fails to render Clauddy's icon.
+        win.ContextMenuFactory = () => _tray!.BuildMenu();
         MainWindow = win;
 
         // Refresh /usage-style stats every 60s by walking transcript files.
@@ -100,7 +110,7 @@ public partial class App : System.Windows.Application
             try
             {
                 var stats = usageStats.Compute(DateTimeOffset.UtcNow);
-                _vm.UpdateUsage(stats, _settings.Quota5hTokens);
+                _vm.UpdateUsage(stats, _settings.Quota5hTokens, _settings.Quota7dTokens);
             }
             catch (Exception ex) { _log?.Warn($"UsageStats refresh failed: {ex.Message}"); }
         }
@@ -110,7 +120,21 @@ public partial class App : System.Windows.Application
         _usageTimer.Start();
 
         if (FirstRunDetector.Default().IsFirstRun())
-            _ = RunHookSetupAsync();
+            _ = RunFirstRunWizardAsync();
+    }
+
+    /// <summary>
+    /// First launch flow: install hooks, then immediately offer calibration so the
+    /// metrics row shows percentages instead of raw token counts. If the user cancels
+    /// hook setup, we skip calibration and re-prompt the whole wizard next launch.
+    /// </summary>
+    private async Task RunFirstRunWizardAsync()
+    {
+        await RunHookSetupAsync();
+        // IsFirstRun flips to false only when the hook ledger has been written.
+        // If the user canceled the hook dialog, leave calibration for next launch.
+        if (!FirstRunDetector.Default().IsFirstRun())
+            await RunCalibrateAsync();
     }
 
     private static void ApplyWindowPosition(Window w, Settings s)
@@ -150,13 +174,38 @@ public partial class App : System.Windows.Application
         base.OnExit(e);
     }
 
+    private async Task RunCalibrateAsync()
+    {
+        await Dispatcher.InvokeAsync(() =>
+        {
+            try
+            {
+                var snapshot = UsageStatsService.Default().Compute(DateTimeOffset.UtcNow);
+                var dlg = new CalibrateDialog(snapshot, _settings.Quota5hTokens, _settings.Quota7dTokens);
+                if (dlg.ShowDialog() != true) return;
+
+                _settings.Quota5hTokens = dlg.Quota5hTokens;
+                _settings.Quota7dTokens = dlg.Quota7dTokens;
+                new SettingsStore(SettingsStore.DefaultPath).Save(_settings);
+                _vm?.UpdateUsage(snapshot, _settings.Quota5hTokens, _settings.Quota7dTokens);
+                _log?.Info($"Calibrated quotas: 5h={_settings.Quota5hTokens}, 7d={_settings.Quota7dTokens}");
+            }
+            catch (Exception ex)
+            {
+                _log?.Error($"Calibrate failed: {ex}");
+                System.Windows.MessageBox.Show($"Calibrate failed:\n{ex.Message}", "Clauddy",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        });
+    }
+
     private async Task RunHookSetupAsync()
     {
         await Dispatcher.InvokeAsync(() =>
         {
             var detector = WslDistroDetector.Default();
             var distros = detector.List();
-            var dlg = new HookSetupDialog(distros, _settings.Quota5hTokens);
+            var dlg = new HookSetupDialog(distros);
             var ok = dlg.ShowDialog() == true;
             if (!ok) return;
 
@@ -169,18 +218,9 @@ public partial class App : System.Windows.Application
                 if (dlg.InstallWindows) inst.InstallWindows();
                 foreach (var d in dlg.InstallDistros) InstallWslDistro(d, home);
 
-                // Persist quota + immediately refresh metrics.
-                _settings.Quota5hTokens = dlg.Quota5hTokens;
-                new SettingsStore(SettingsStore.DefaultPath).Save(_settings);
-                if (_vm != null)
-                {
-                    var stats = UsageStatsService.Default().Compute(DateTimeOffset.UtcNow);
-                    _vm.UpdateUsage(stats, _settings.Quota5hTokens);
-                }
-
                 System.Windows.MessageBox.Show("Hooks installed. Restart any open Claude Code sessions for changes to take effect.",
                     "Clauddy", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                _log?.Info($"Hooks installed: windows={dlg.InstallWindows}, wsl=[{string.Join(",", dlg.InstallDistros)}], quota5h={dlg.Quota5hTokens}");
+                _log?.Info($"Hooks installed: windows={dlg.InstallWindows}, wsl=[{string.Join(",", dlg.InstallDistros)}]");
             }
             catch (Exception ex)
             {

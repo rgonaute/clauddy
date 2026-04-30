@@ -26,6 +26,7 @@ public class MainViewModel : INotifyPropertyChanged
             OnChanged(nameof(BigGifSource));
             OnChanged(nameof(SelectedTokensDisplay));
             OnChanged(nameof(SelectedCachePercent));
+            OnChanged(nameof(SubtitleDisplay));
             OnChanged(nameof(HasSelection));
         }
     }
@@ -50,9 +51,32 @@ public class MainViewModel : INotifyPropertyChanged
     private string _window7d = "—";
     public string Window7dDisplay { get => _window7d; set { _window7d = value; OnChanged(); } }
 
+    /// <summary>
+    /// Raw-token prefix used in the subtitle when at least one window is calibrated to %.
+    /// Empty when uncalibrated — the primary line already carries raw counts then.
+    /// </summary>
+    private string _rawSubtitle = "";
+
     private double _aggCacheRate;
-    public double AggregateCacheRate { get => _aggCacheRate; set { _aggCacheRate = value; OnChanged(); OnChanged(nameof(AggregateCachePercent)); } }
+    public double AggregateCacheRate
+    {
+        get => _aggCacheRate;
+        set { _aggCacheRate = value; OnChanged(); OnChanged(nameof(AggregateCachePercent)); OnChanged(nameof(SubtitleDisplay)); }
+    }
     public string AggregateCachePercent => $"{_aggCacheRate:P0}";
+
+    /// <summary>Combined secondary line: raw tokens (if calibrated), cache hit, current session.</summary>
+    public string SubtitleDisplay
+    {
+        get
+        {
+            var parts = new List<string>(3);
+            if (!string.IsNullOrEmpty(_rawSubtitle)) parts.Add(_rawSubtitle);
+            parts.Add($"cache {AggregateCachePercent}");
+            parts.Add($"this {(_selected == null ? "—" : FormatTokens(_selected.TotalTokens))}");
+            return string.Join(" · ", parts);
+        }
+    }
 
     private double _scale = 1.0;
     public double Scale
@@ -73,13 +97,23 @@ public class MainViewModel : INotifyPropertyChanged
         foreach (var s in store.Sessions) Add(s);
     }
 
-    public void UpdateUsage(UsageStats stats, long quota5h)
+    public void UpdateUsage(UsageStats stats, long quota5h, long quota7d)
     {
         Window5hDisplay = quota5h > 0
             ? $"5h: {(double)stats.Last5HoursTokens / quota5h:P0}"
             : $"5h: {FormatTokens(stats.Last5HoursTokens)}";
-        Window7dDisplay = $"Week: {FormatTokens(stats.Last7DaysTokens)}";
+        Window7dDisplay = quota7d > 0
+            ? $"Week: {(double)stats.Last7DaysTokens / quota7d:P0}"
+            : $"Week: {FormatTokens(stats.Last7DaysTokens)}";
+
+        // When calibrated, primary line shows %; raw counts demote to a subtitle.
+        // When uncalibrated, primary already shows raw counts so the subtitle stays empty.
+        _rawSubtitle = (quota5h > 0 || quota7d > 0)
+            ? $"5h {FormatTokens(stats.Last5HoursTokens)} · 7d {FormatTokens(stats.Last7DaysTokens)}"
+            : "";
+
         AggregateCacheRate = stats.Last5HoursCacheRate;
+        OnChanged(nameof(SubtitleDisplay));
     }
 
     public static string FormatTokens(long n) => n switch
@@ -166,6 +200,7 @@ public class MainViewModel : INotifyPropertyChanged
             {
                 OnChanged(nameof(SelectedTokensDisplay));
                 OnChanged(nameof(SelectedCachePercent));
+                OnChanged(nameof(SubtitleDisplay));
             }
         }
     }
