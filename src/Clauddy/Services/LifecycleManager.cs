@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Clauddy.Models;
 
 namespace Clauddy.Services;
 
@@ -6,18 +7,23 @@ public class LifecycleManager
 {
     private readonly SessionStore _store;
     private readonly Func<DateTimeOffset> _clock;
-    private readonly TimeSpan _maxAge;
+    private readonly TimeSpan _sleepAfter;
     private readonly Func<int, bool>? _isAlive;
 
+    /// <param name="sleepAfter">
+    /// How long a Chilling session must be silent before it transitions to Sleeping.
+    /// Sessions are never removed by age — only SessionEnd hooks or confirmed process
+    /// death remove tiles, so accumulated sleeping pills act as a session inventory.
+    /// </param>
     /// <param name="isAlive">
     /// Optional process-liveness probe. Given a PID, returns true iff the process is
     /// still running. Pass null in tests; production wires Default() which uses
     /// kernel32 OpenProcess. Sessions whose Pid is 0 are skipped (no probe).
     /// </param>
-    public LifecycleManager(SessionStore store, Func<DateTimeOffset> clock, TimeSpan maxAge,
+    public LifecycleManager(SessionStore store, Func<DateTimeOffset> clock, TimeSpan sleepAfter,
         Func<int, bool>? isAlive = null)
     {
-        _store = store; _clock = clock; _maxAge = maxAge; _isAlive = isAlive;
+        _store = store; _clock = clock; _sleepAfter = sleepAfter; _isAlive = isAlive;
     }
 
     // Returns: true if alive OR opaque (can't confirm); false only when we positively
@@ -49,8 +55,9 @@ public class LifecycleManager
 
     public void Tick()
     {
-        // First: any session whose owning process has died, remove immediately.
-        // Covers Ctrl+C, closed terminal, kill -9 — cases where SessionEnd never fires.
+        // Removal: only by confirmed process death — the lone fast cleanup path. Stale
+        // sessions are no longer auto-removed; the user wants the pill bar to act as a
+        // running session inventory, even if a session is silent for hours.
         if (_isAlive != null)
         {
             foreach (var s in _store.Sessions.Where(s => s.Pid > 0).ToList())
@@ -58,7 +65,13 @@ public class LifecycleManager
                 if (!_isAlive(s.Pid)) _store.Remove(s.SessionId);
             }
         }
-        // Belt-and-suspenders: stale sessions (no hook activity for maxAge) also go.
-        _store.RemoveStale(_clock(), _maxAge);
+        // Sleep transition: Chilling sessions older than _sleepAfter become Sleeping.
+        // The next hook for that session (SessionStart, UserPromptSubmit, Stop, …)
+        // overwrites it back to whatever state the hook reports.
+        var sleepBefore = _clock() - _sleepAfter;
+        foreach (var s in _store.Sessions.Where(s => s.State == SessionState.Chilling && s.LastSeen < sleepBefore).ToList())
+        {
+            _store.Upsert(s with { State = SessionState.Sleeping });
+        }
     }
 }

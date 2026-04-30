@@ -39,6 +39,7 @@ public class TileViewModel : INotifyPropertyChanged
     {
         SessionState.Alerting => "#ef4444",
         SessionState.Working  => "#f59e0b",
+        SessionState.Sleeping => "#475569",
         _                     => "#6b7280"
     };
 

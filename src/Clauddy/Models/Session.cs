@@ -1,6 +1,6 @@
 namespace Clauddy.Models;
 
-public enum SessionState { Chilling, Working, Alerting }
+public enum SessionState { Chilling, Working, Alerting, Sleeping }
 
 public record Session(
     string SessionId,

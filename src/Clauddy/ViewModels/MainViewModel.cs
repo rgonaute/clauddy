@@ -37,6 +37,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         SessionState.Working  => "pack://application:,,,/Assets/working.gif",
         SessionState.Alerting => "pack://application:,,,/Assets/alerting.gif",
+        SessionState.Sleeping => "pack://application:,,,/Assets/sleeping.gif",
         _                     => "pack://application:,,,/Assets/chilling.gif"
     };
 
